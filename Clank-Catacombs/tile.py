@@ -10,8 +10,9 @@ W_tile = 100
 T_tile = 1.60
 T_tiles = 24
 
-T_wall = 1.2
+T_wall = 2
 W_finger_cutout = 28
+H_finger_cutout = 5
 
 W_tile_inner = W_tile + 2 * tol_comfort
 W_box_inner = W_tile_inner + T_wall + W_tile_inner
@@ -32,7 +33,18 @@ tile_box = (cq.Workplane()
             .moveTo(0, -(T_wall / 2 + W_tile_inner / 2))
             .rect(H_box_inner + 2 * T_wall, W_finger_cutout)
             .extrude(T_box_inner, combine='cut')
+            .moveTo((H_box_inner + 2 * T_wall) / 2,
+                    (T_wall + W_tile_inner) / 2 + W_finger_cutout / 2)
+            .sagittaArc(((H_box_inner + 2 * T_wall) / 2,
+                        (T_wall + W_tile_inner) / 2 - W_finger_cutout / 2),
+                        -H_finger_cutout)
+            .close()
+            .mirrorX()
+            .mirrorY()
+            .cutThruAll()
             )
+
+print(T_box_inner + T_wall)
 
 dir_cwd = os.getcwd()
 dir_models = 'models'
