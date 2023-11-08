@@ -76,8 +76,6 @@ reserve_shop = reserve_shop.extrude(-T_card_slot, combine='cut')
 #                 .shell(T_wall)
 #                 )
 
-print(T_shop)
-
 dir_cwd = os.getcwd()
 dir_models = 'models'
 os.makedirs(dir_models, exist_ok=True)

@@ -133,6 +133,8 @@ for i, (H_token, W_token, T_token, sep) in enumerate(
                             combine='cut')
                    )
 
+print(T_shop_outer)
+
 dir_cwd = os.getcwd()
 dir_models = 'models'
 os.makedirs(dir_models, exist_ok=True)

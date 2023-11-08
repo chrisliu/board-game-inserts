@@ -44,7 +44,7 @@ tile_box = (cq.Workplane()
             .cutThruAll()
             )
 
-print(T_box_inner + T_wall)
+print(W_box_inner + 2 * T_wall)
 
 dir_cwd = os.getcwd()
 dir_models = 'models'
