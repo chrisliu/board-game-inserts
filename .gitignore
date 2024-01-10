@@ -1,5 +1,6 @@
 *.stl
 *.3mf
+*.step
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
