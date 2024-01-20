@@ -1,12 +1,13 @@
+import functools
 import math
 import cadquery as cq
 from cq_gears import RingGear
 from scorecounter.parameters import (
     GEAR_MODULE, N_TEETH_DIGIT, W_DIGIT_WHEEL_GEAR, T_DIGIT_WHEEL_RIM,
     ANGLE_OVERHANG, R_DIGIT_WHEEL_OUTER, R_DIGIT_WHEEL_INNER, RG_DIGIT,
-    W_CARRY_GEAR_MUTILATED
+    W_CARRY_GEAR_MUTILATED, DIGITS, FONT, W_DIGIT_CHARACTER
 )
-from typing import Optional
+from typing import Literal, Optional, Tuple
 
 
 def make_digit_wheel_rgear(width: Optional[int | float] = None) -> cq.Workplane:
@@ -128,3 +129,77 @@ def __make_involute_tool(width: int | float) -> cq.Workplane:
                      .cut(make_digit_wheel_rgear(width))
                      )
     return involute_tool
+
+
+@functools.cache
+def __get_font_size() -> float:
+    '''Returns the font size that satisfies the widest character fits in
+    W_DIGIT_CHARACTER.
+    '''
+    def get_x(digit: str, font_size: float) -> float:
+        txt = cq.Workplane().text(digit, fontsize=font_size, distance=1,
+                                  font=FONT)
+        assert len(txt.objects) == 1
+        obj = txt.objects[0]
+        bb = obj.BoundingBox()
+        return bb.xmax - bb.xmin
+
+    fs_min = 5
+    fs_max = 10
+    fs = list()
+    for digit in DIGITS:
+        x_min = get_x(digit, fs_min)
+        x_max = get_x(digit, fs_max)
+        fs_fit = fs_min + ((fs_max - fs_min) / (x_max - x_min)
+                           * (W_DIGIT_CHARACTER - x_min))
+        fs.append(fs_fit)
+    return min(fs)
+
+
+@functools.cache
+def __get_digit_center_adj(digit: str, font_size: int | float
+                           ) -> Tuple[float, float]:
+    '''Returns the X, Y adjustments required to center a digit.'''
+
+    txt = cq.Workplane().text(digit, fontsize=font_size, distance=1,
+                              font=FONT)
+    assert len(txt.objects) == 1
+    obj = txt.objects[0]
+    bb_c = obj.CenterOfBoundBox()
+    return -bb_c.x, -bb_c.y
+
+
+def make_digit_tool(width_outer: int | float, width_rim: int | float, *,
+                    low_to_high: Literal['RotateUp', 'RotateDown']
+                    ) -> cq.Workplane:
+    '''Makes the number tool for a ring of given width and thickness.
+
+    Resulting tool will be centered on X, Y, and Z axes.
+
+    Numbers will be presented in ascending order when
+      a) RotateUp: thumb pushes upwards.
+      b) RotateDown: thumb pushes downwards.
+    '''
+    ring = (cq.Workplane()
+            .circle(width_outer)
+            .circle(width_outer - width_rim)
+            .extrude(W_DIGIT_CHARACTER / 2, both=True)
+            )
+
+    digit_tool = cq.Workplane()
+
+    font_size = __get_font_size()
+    angle_digit = 360 / len(DIGITS)
+    if low_to_high == 'RotateUp':
+        angle_digit *= -1
+    for i, digit in enumerate(DIGITS):
+        dx, dy = __get_digit_center_adj(digit, font_size)
+        wp = (cq.Workplane()
+              .text(digit, fontsize=font_size, distance=width_outer, font=FONT)
+              .translate((dx, dy, 0))
+              .rotate((0, 0, 0), (0, 1, 0), 90)
+              .rotate((0, 0, 0), (0, 0, 1), angle_digit * i)
+              )
+        digit_tool = digit_tool.union(wp
+                                      .intersect(ring))
+    return digit_tool

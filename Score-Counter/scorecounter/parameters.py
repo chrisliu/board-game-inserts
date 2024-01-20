@@ -15,12 +15,12 @@ ANGLE_OVERHANG = math.radians(25)  # Printer overhang angle.
 T_WALL_MIN = 0.8  # Minimum thickness of any walls.
 
 # Digit wheel.
-DIGITS = list(range(10))  # Digits shown on the wheel.
+DIGITS = [str(i) for i in range(10)]  # Digits shown on the wheel.
 R_DIGIT_WHEEL_OUTER = 38 / 2  # Radius of the digit wheel.
 T_DIGIT_WHEEL_RIM = 1.75  # Wall thickness from digit ring gear dedendum.
 W_DIGIT_WHEEL_GEAR = 3  # Width of ring gear(s) in a digit wheel.
-W_DIGIT_CHARACTER = 8  # Width allotted to a digit character.
-W_DIGIT_SPACING = 2  # Width between digit characters (from allotted space).
+W_DIGIT_CHARACTER = 7.5  # Width allotted to a digit character.
+W_DIGIT_SPACING = 2.25  # Width between digit characters (from allotted space).
 FONT = 'monaco'  # Digit gear font.
 
 # General gear configuration.
