@@ -47,4 +47,27 @@ def make_carry_gear(width: int | float,
     return carry_gear
 
 
-cg = make_carry_gear(W_CARRY_GEAR)
+if __name__ == '__cq_main__':
+    from scorecounter.parameters import (
+        W_DIGIT_WHEEL_GEAR, R_SHAFT, W_DIGIT_CHARACTER, W_DIGIT_SPACING,
+        R_PEG_CARRY, TOL_MOVING
+    )
+    from cadquery import exporters
+
+    '''
+    shaft_gear = (make_shaft_gear(W_DIGIT_WHEEL_GEAR)
+                  .faces('>Z')
+                  .workplane()
+                  .moveTo(0, 0)
+                  .circle(R_SHAFT)
+                  .extrude(W_DIGIT_CHARACTER + W_DIGIT_SPACING - W_DIGIT_WHEEL_GEAR)
+                  )
+    exporters.export(shaft_gear, 'shaft_gear.stl')
+    '''
+
+    carry_gear = (make_carry_gear(2 * W_DIGIT_WHEEL_GEAR)
+                  .moveTo(0, 0)
+                  .circle(R_PEG_CARRY + TOL_MOVING)
+                  .cutThruAll()
+                  )
+    exporters.export(carry_gear, 'carry_gear.stl')
