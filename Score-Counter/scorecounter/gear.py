@@ -5,7 +5,7 @@ from cq_gears import SpurGear
 from scorecounter.parameters import (
     GEAR_MODULE, N_TEETH_CARRY, N_TEETH_SHAFT, W_CARRY_GEAR_MUTILATED,
     W_SHAFT_SQUARE, TOL_TIGHT_FIT, W_SHAFT, R_SHAFT, ANGLE_OVERHANG,
-    W_DIGIT_WHEEL_GEAR
+    W_DIGIT_WHEEL_GEAR, R_PEG_CARRY, TOL_MOVING
 )
 
 
@@ -94,18 +94,15 @@ def make_shaft() -> cq.Workplane:
 
 
 if __name__ == '__cq_main__':
-    from scorecounter.parameters import (
-        W_DIGIT_WHEEL_GEAR, R_SHAFT, W_DIGIT_CHARACTER, W_DIGIT_SPACING,
-        R_PEG_CARRY, TOL_MOVING, W_DIGIT_CHARACTER, W_DIGIT_SPACING,
-        T_WALL_MIN, ANGLE_OVERHANG
-    )
+    import os
+    from scorecounter.parameters import DIR_EXPORT
     from cadquery import exporters
 
-    shaft_gear = make_shaft_gear(W_DIGIT_WHEEL_GEAR)
-    exporters.export(shaft_gear, 'shaft_gear.stl')
+    gear_shaft = make_shaft_gear(W_DIGIT_WHEEL_GEAR)
+    exporters.export(gear_shaft, os.path.join(DIR_EXPORT, 'gear_shaft.stl'))
 
     shaft = make_shaft()
-    exporters.export(shaft, 'shaft.stl')
+    exporters.export(shaft, os.path.join(DIR_EXPORT, 'shaft.stl'))
 
-    carry_gear = make_carry_gear(2 * W_DIGIT_WHEEL_GEAR)
-    exporters.export(carry_gear, 'carry_gear.stl')
+    gear_carry = make_carry_gear(2 * W_DIGIT_WHEEL_GEAR)
+    exporters.export(gear_carry, os.path.join(DIR_EXPORT, 'gear_carry.stl'))

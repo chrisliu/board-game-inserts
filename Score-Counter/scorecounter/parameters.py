@@ -3,10 +3,17 @@
 This module is divided into user-defined constants and derived constants.
 """
 
+import os
 import math
 from cq_gears import RingGear, SpurGear
 
 '''User-defined constants'''
+
+DIR_EXPORT = os.path.join(
+    os.path.dirname(__file__),
+    '..',
+    'models')
+os.makedirs(DIR_EXPORT, exist_ok=True)
 
 # Printer specific tolerances.
 TOL_MOVING = 0.13  # Tolerance for moving components.
@@ -97,6 +104,17 @@ R_PEG_CORE = R_PEG + T_WALL_MIN + TOL_TIGHT_FIT
 W_CORE_ONES = W_WHEEL_ONES - W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
 W_CORE_TENS = W_WHEEL_TENS + W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
 W_CORE_ONES_MIRROR = W_WHEEL_ONES_MIRROR + 2 * TOL_MOVING
+
+
+# Compute center of peg s.t. its edge intersects with the inner wall
+# and is x_mid distance from the center in the x direction.
+__XMIN_CARRY = RG_DIGIT.r0 - SG_CARRY.r0 - SG_CARRY.ra
+__XMAX_SHAFT = -(RG_DIGIT.r0 - SG_SHAFT.r0 - SG_SHAFT.ra)
+assert __XMIN_CARRY >= __XMAX_SHAFT and "Carry and shaft gears intersect."
+X_PEG_CORE_CENTER = (__XMIN_CARRY + __XMAX_SHAFT) / 2
+THETA_PEG_CORE_CENTER = math.acos(
+    X_PEG_CORE_CENTER / (R_CORE_INNER - R_PEG_CORE))
+Y_PEG_CORE_CENTER = X_PEG_CORE_CENTER * math.tan(THETA_PEG_CORE_CENTER)
 
 
 # Shaft gear.
