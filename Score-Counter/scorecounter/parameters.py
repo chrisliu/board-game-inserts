@@ -24,6 +24,9 @@ T_DIGIT_WHEEL_RIM = 1.75  # Wall thickness from digit ring gear dedendum.
 W_DIGIT_WHEEL_GEAR = 3  # Width of ring gear(s) in a digit wheel.
 W_DIGIT_CHARACTER = 7.5  # Width allotted to a digit character.
 W_DIGIT_SPACING = 2.25  # Width between digit characters (from allotted space).
+W_DIGIT_WHEEL_BUMP = 12  # Width of the tactile bumps.
+T_BUMP = 1.25  # Thickness of bump.
+RATIO_BUMP = 0.7  # Ratio of bumps on circumference.
 FONT = 'monaco'  # Digit font.
 
 # Core configuration.
@@ -73,6 +76,16 @@ __X_SGC_TIP2 = ((RG_DIGIT.r0 - SG_CARRY.r0)
                 + (SG_CARRY.ra * math.cos(__ANGLE_SGC_TIP2)))  # Global x
 __Y_SGC_TIP2 = SG_CARRY.ra * math.sin(__ANGLE_SGC_TIP2)  # Global y
 R_DIGIT_WHEEL_INNER = math.sqrt(__X_SGC_TIP2 ** 2 + __Y_SGC_TIP2 ** 2)
+R_BUMP_OUTER = R_DIGIT_WHEEL_OUTER + T_BUMP
+ANGLE_BUMP_ALL = math.radians(360 / len(DIGITS))
+ANGLE_BUMP = RATIO_BUMP * ANGLE_BUMP_ALL
+
+T_FONT = min(T_WALL_MIN,
+             R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
+W_WHEEL_ONES = W_DIGIT_CHARACTER + W_DIGIT_SPACING + W_DIGIT_WHEEL_BUMP
+W_WHEEL_TENS = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
+                + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
+W_WHEEL_ONES_MIRROR = W_DIGIT_CHARACTER + W_DIGIT_SPACING
 
 # Core configuration.
 R_CORE_OUTER = R_DIGIT_WHEEL_INNER - TOL_MOVING
@@ -81,10 +94,15 @@ R_PEG_CARRY = SG_CARRY.rd - T_WALL_MIN - TOL_MOVING
 R_PEG_CARRY_SUPPORT = min(R_PEG_CARRY + T_WALL_MIN + TOL_TIGHT_FIT,
                           SG_CARRY.rd)
 R_PEG_CORE = R_PEG + T_WALL_MIN + TOL_TIGHT_FIT
+W_CORE_ONES = W_WHEEL_ONES - W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+W_CORE_TENS = W_WHEEL_TENS + W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+W_CORE_ONES_MIRROR = W_WHEEL_ONES_MIRROR + 2 * TOL_MOVING
+
 
 # Shaft gear.
 R_SHAFT = SG_SHAFT.rd - T_WALL_MIN - TOL_MOVING
 W_SHAFT_SQUARE = 2 * R_SHAFT / math.sqrt(2) - 2 * TOL_TIGHT_FIT
+W_SHAFT = W_CORE_ONES + W_CORE_TENS + W_CORE_ONES_MIRROR
 
 # Sanity checks.
 assert N_TEETH_DIGIT % 2 == 0

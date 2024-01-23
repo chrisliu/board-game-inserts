@@ -5,7 +5,9 @@ from cq_gears import RingGear
 from scorecounter.parameters import (
     GEAR_MODULE, N_TEETH_DIGIT, W_DIGIT_WHEEL_GEAR, T_DIGIT_WHEEL_RIM,
     ANGLE_OVERHANG, R_DIGIT_WHEEL_OUTER, R_DIGIT_WHEEL_INNER, RG_DIGIT,
-    W_CARRY_GEAR_MUTILATED, DIGITS, FONT, W_DIGIT_CHARACTER
+    W_CARRY_GEAR_MUTILATED, DIGITS, FONT, W_DIGIT_CHARACTER, T_FONT,
+    W_WHEEL_ONES, W_WHEEL_TENS, W_WHEEL_ONES_MIRROR, W_DIGIT_WHEEL_BUMP,
+    ANGLE_BUMP_ALL, ANGLE_BUMP, R_BUMP_OUTER
 )
 from typing import Literal, Optional, Tuple
 
@@ -205,17 +207,16 @@ def __get_digit_center_adj(digit: str, font_size: int | float
     return -bb_c.x, -bb_c.y
 
 
-def make_digit_ones() -> cq.Workplane:
-    T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
-
-    W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
-    W_wheel_ones_inner = W_wheel_ones - 2 * W_DIGIT_WHEEL_GEAR
-    digit_ones = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
+def make_wheel_ones() -> cq.Workplane:
+    W_wheel_ones_inner = W_WHEEL_ONES - 2 * W_DIGIT_WHEEL_GEAR
+    Z_digit_center = (W_DIGIT_WHEEL_BUMP
+                      + (W_DIGIT_CHARACTER + W_DIGIT_SPACING) / 2)
+    digit_ones = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_FONT,
                                   low_to_high='RotateUp')
                   .rotate((0, 0, 0), (0, 0, 1),
                           -(math.degrees(ANGLE_VIEWING)
                             + (1 - 1/2) * 360 / len(DIGITS)))
-                  .translate((0, 0, W_wheel_ones / 2))
+                  .translate((0, 0, Z_digit_center))
                   )
 
     wheel_ones = (make_digit_wheel_rgear(W_DIGIT_WHEEL_GEAR)
@@ -224,64 +225,108 @@ def make_digit_ones() -> cq.Workplane:
                       .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
                   .union(
                       make_digit_wheel_carry()
-                      .translate((0, 0, W_wheel_ones - W_DIGIT_WHEEL_GEAR)))
+                      .translate((0, 0, W_WHEEL_ONES - W_DIGIT_WHEEL_GEAR)))
                   .cut(digit_ones)
                   )
+
+    # Make bumps.
+    bump = (cq.Workplane()
+            .moveTo(R_DIGIT_WHEEL_OUTER * math.cos(ANGLE_BUMP / 2),
+                    R_DIGIT_WHEEL_OUTER * math.sin(ANGLE_BUMP / 2))
+            .radiusArc((R_DIGIT_WHEEL_OUTER * math.cos(-ANGLE_BUMP / 2),
+                       R_DIGIT_WHEEL_OUTER * math.sin(-ANGLE_BUMP / 2)),
+                       R_DIGIT_WHEEL_OUTER)
+            .lineTo(R_BUMP_OUTER * math.cos(-ANGLE_BUMP / 2),
+                    R_BUMP_OUTER * math.sin(-ANGLE_BUMP / 2))
+            .radiusArc((R_BUMP_OUTER * math.cos(ANGLE_BUMP / 2),
+                        R_BUMP_OUTER * math.sin(ANGLE_BUMP / 2)),
+                       -R_BUMP_OUTER)
+            .close()
+            .extrude(W_DIGIT_WHEEL_BUMP)
+            )
+
+    for i in range(len(DIGITS)):
+        angle = ANGLE_BUMP_ALL * i
+        wheel_ones = wheel_ones.union(bump
+                                      .rotate((0, 0, 0), (0, 0, 1),
+                                              math.degrees(angle)))
+
+    '''
+    T_BUMP = 1.25
+    RATIO_BUMP = 0.7
+    angle_unit = math.radians(360 / len(DIGITS))
+    angle_bump = angle_unit * RATIO_BUMP
+    R_BUMP_OUTER = R_DIGIT_WHEEL_OUTER + T_BUMP
+    bump = (cq.Workplane()
+            .moveTo(R_DIGIT_WHEEL_OUTER * math.cos(angle_bump / 2),
+                    R_DIGIT_WHEEL_OUTER * math.sin(angle_bump / 2))
+            .radiusArc((R_DIGIT_WHEEL_OUTER * math.cos(-angle_bump / 2),
+                        R_DIGIT_WHEEL_OUTER * math.sin(-angle_bump / 2)),
+                       R_DIGIT_WHEEL_OUTER)
+            .lineTo(R_BUMP_OUTER * math.cos(-angle_bump / 2),
+                    R_BUMP_OUTER * math.sin(-angle_bump / 2))
+            .radiusArc((R_BUMP_OUTER * math.cos(angle_bump / 2),
+                        R_BUMP_OUTER * math.sin(angle_bump / 2)),
+                       -R_BUMP_OUTER)
+            .close()
+            .extrude(W_BUMP_WHEEL)
+            )
+
+    for i in range(len(DIGITS)):
+        angle = angle_unit / 2 + angle_unit * i
+        bump_wheel = (bump_wheel
+                      .union(bump
+                             .rotate((0, 0, 0), (0, 0, 1),
+                                     math.degrees(angle)))
+                      )
+    '''
+
     return wheel_ones
 
 
-def make_digit_tens() -> cq.Workplane:
-    T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
-    W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
-                    + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
-    digit_tens = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
+def make_wheel_tens() -> cq.Workplane:
+    digit_tens = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_FONT,
                                   low_to_high='RotateUp')
                   .rotate((0, 0, 0), (0, 0, 1),
                           -(math.degrees(ANGLE_VIEWING)
                             + (1 - 1/2) * 360 / len(DIGITS)))
                   .translate((0, 0, (W_DIGIT_CHARACTER + W_DIGIT_SPACING) / 2))
                   )
-    digit_tens_mirror = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
+    digit_tens_mirror = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_FONT,
                                          low_to_high='RotateDown')
                          .rotate((0, 0, 0), (1, 0, 0), 180)
                          .rotate((0, 0, 0), (0, 0, 1),
                                  (math.degrees(ANGLE_VIEWING)
                                   - (1 - 1/2) * 360 / len(DIGITS)))
-                         .translate((0, 0, W_wheel_tens -
+                         .translate((0, 0, W_WHEEL_TENS -
                                      (W_DIGIT_CHARACTER + W_DIGIT_SPACING) / 2))
                          )
     wheel_tens = (make_digit_wheel_rgear(W_DIGIT_WHEEL_GEAR)
                   .union(
-                      make_digit_wheel_inner(W_wheel_tens - W_DIGIT_WHEEL_GEAR)
+                      make_digit_wheel_inner(W_WHEEL_TENS - W_DIGIT_WHEEL_GEAR)
                       .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
                   .cut(digit_tens)
                   .cut(digit_tens_mirror)
-                  # .translate((0, 0, W_wheel_ones))
                   )
     return wheel_tens
 
 
-def make_digit_ones_mirror() -> cq.Workplane:
-    T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
-    W_wheel_ones_mirror = W_DIGIT_CHARACTER + W_DIGIT_SPACING
-    W_wheel_ones_mirror_inner = W_wheel_ones_mirror - W_DIGIT_WHEEL_GEAR
-    digit_ones_mirror = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
+def make_wheel_ones_mirror() -> cq.Workplane:
+    W_wheel_ones_mirror_inner = W_WHEEL_ONES_MIRROR - W_DIGIT_WHEEL_GEAR
+    digit_ones_mirror = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_FONT,
                                          low_to_high='RotateDown')
                          .rotate((0, 0, 0), (0, 0, 1),
                                  -(math.degrees(ANGLE_VIEWING)
                                    - (1 - 1/2) * 360 / len(DIGITS)))
-                         .translate((0, 0, W_wheel_ones_mirror / 2))
+                         .translate((0, 0, W_WHEEL_ONES_MIRROR / 2))
                          )
     wheel_ones_mirror = (make_digit_wheel_rgear(W_DIGIT_WHEEL_GEAR)
                          .union(
                              make_digit_wheel_inner(W_wheel_ones_mirror_inner)
                              .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
                          .cut(digit_ones_mirror)
-                         .translate((0, 0, -W_wheel_ones_mirror / 2))
+                         .translate((0, 0, -W_WHEEL_ONES_MIRROR / 2))
                          .rotate((0, 0, 0), (1, 0, 0), 180)
-                         # .translate((0, 0,
-                         #             W_wheel_ones + W_wheel_tens
-                         #             + W_wheel_ones_mirror / 2))
                          )
     return wheel_ones_mirror
 
@@ -297,6 +342,10 @@ if __name__ == '__cq_main__':
     )
     from cadquery import exporters
 
+    wheel_ones = make_wheel_ones()
+    exporters.export(wheel_ones, 'wheel_ones.stl')
+
+    '''
     W_BUMP_WHEEL = 10
     bump_wheel = (cq.Workplane()
                   .circle(R_DIGIT_WHEEL_OUTER)
@@ -333,7 +382,7 @@ if __name__ == '__cq_main__':
 
     W_spring = 0.8 * W_BUMP_WHEEL
     R_spring = 1.1 * R_BUMP_OUTER
-    T_spring = 0.8
+    T_spring = 0.7
     angle_spring = angle_bump
     X_p1 = R_BUMP_OUTER * math.cos(angle_unit - angle_bump)
     Y_p1 = R_BUMP_OUTER * math.sin(angle_unit - angle_bump)
@@ -469,3 +518,4 @@ if __name__ == '__cq_main__':
     exporters.export(bump_housing, 'bump_housing.stl')
 
     print(H_box)
+    '''

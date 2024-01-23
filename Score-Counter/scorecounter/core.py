@@ -4,7 +4,8 @@ from typing import Literal, Tuple
 from scorecounter.parameters import (
     R_CORE_OUTER, R_CORE_INNER, R_PEG_CARRY, R_PEG, W_PEG, T_PEG_MIN,
     T_WALL_MIN, RG_DIGIT, SG_CARRY, SG_SHAFT, TOL_TIGHT_FIT, ANGLE_OVERHANG,
-    R_PEG_CORE, R_SHAFT, R_PEG_CARRY_SUPPORT
+    R_PEG_CORE, R_SHAFT, R_PEG_CARRY_SUPPORT, W_CORE_ONES, W_CORE_TENS,
+    W_CORE_ONES_MIRROR
 )
 
 
@@ -302,38 +303,10 @@ def make_peg_standalone(W_peg) -> cq.Workplane:
     return peg
 
 
-def make_core_ones_mirror() -> cq.Workplane:
-    W_wheel_ones_mirror = W_DIGIT_CHARACTER + W_DIGIT_SPACING
-    W_all = W_wheel_ones_mirror + 2 * TOL_MOVING
-    W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thicker = W_all - W_thinner
-    core_ones_mirror = make_core_bottom(W_thicker, W_thinner,
-                                        male_peg_orientation='Thinner')
-    core_ones_mirror = make_core_shaft_gear(core_ones_mirror,
-                                            W_thicker, W_thinner)
-    return core_ones_mirror
-
-
-def make_core_tens() -> cq.Workplane:
-    W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
-                    + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
-    # Goes into the ones ring
-    W_all = W_wheel_tens + W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thinner = 2 * W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thicker = W_all - W_thinner
-    core_tens = make_core_bottom(W_thicker, W_thinner,
-                                 male_peg_orientation='Thinner')
-    core_tens = make_core_shaft_from_bottom(core_tens, W_thicker + W_thinner)
-    core_tens = make_core_carry(core_tens, W_thicker, W_thinner)
-    return core_tens
-
-
 def make_core_ones() -> cq.Workplane:
-    W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
     # Note: Tens ring extends into the ones.
-    W_all = W_wheel_ones - W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thicker = W_all - W_thinner
+    W_thinner = W_DIGIT_CORE_GEAR + 2 * TOL_MOVING
+    W_thicker = W_CORE_ONES - W_thinner
     core_ones = make_core_bottom(W_thicker, W_thinner,
                                  male_peg_orientation='Thinner')
     core_ones = make_core_shaft_gear(core_ones, W_thicker, W_thinner)
@@ -341,9 +314,30 @@ def make_core_ones() -> cq.Workplane:
     return core_ones
 
 
+def make_core_tens() -> cq.Workplane:
+    # Goes into the ones ring
+    W_thinner = 2 * W_DIGIT_CORE_GEAR + 2 * TOL_MOVING
+    W_thicker = W_CORE_TENS - W_thinner
+    core_tens = make_core_bottom(W_thicker, W_thinner,
+                                 male_peg_orientation='Thinner')
+    core_tens = make_core_shaft_from_bottom(core_tens, W_thicker + W_thinner)
+    core_tens = make_core_carry(core_tens, W_thicker, W_thinner)
+    return core_tens
+
+
+def make_core_ones_mirror() -> cq.Workplane:
+    W_thinner = W_DIGIT_CORE_GEAR + 2 * TOL_MOVING
+    W_thicker = W_CORE_ONES_MIRROR - W_thinner
+    core_ones_mirror = make_core_bottom(W_thicker, W_thinner,
+                                        male_peg_orientation='Thinner')
+    core_ones_mirror = make_core_shaft_gear(core_ones_mirror,
+                                            W_thicker, W_thinner)
+    return core_ones_mirror
+
+
 if __name__ == '__cq_main__':
     from scorecounter.parameters import (
-        W_DIGIT_WHEEL_GEAR, W_CARRY_GEAR, TOL_MOVING,
+        W_DIGIT_CORE_GEAR, W_CARRY_GEAR, TOL_MOVING,
         W_DIGIT_CHARACTER, W_DIGIT_SPACING
     )
     from cadquery import exporters
