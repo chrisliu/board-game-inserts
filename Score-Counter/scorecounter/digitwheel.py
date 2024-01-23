@@ -205,22 +205,11 @@ def __get_digit_center_adj(digit: str, font_size: int | float
     return -bb_c.x, -bb_c.y
 
 
-if __name__ == '__cq_main__':
-    from scorecounter.parameters import (
-        W_DIGIT_SPACING, T_WALL_MIN, ANGLE_VIEWING
-    )
-    from scorecounter.parameters import (
-        R_CORE_INNER, R_CORE_OUTER, T_CORE_WALL, W_CARRY_GEAR, TOL_MOVING,
-        T_WALL_MIN, SG_CARRY, SG_SHAFT, RG_DIGIT, R_PEG_CARRY, R_SHAFT,
-        T_SHAFT_WALL, T_PEG_MIN, W_PEG
-    )
-    from cadquery import exporters
-
+def make_digit_ones() -> cq.Workplane:
     T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
 
     W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
     W_wheel_ones_inner = W_wheel_ones - 2 * W_DIGIT_WHEEL_GEAR
-    '''
     digit_ones = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
                                   low_to_high='RotateUp')
                   .rotate((0, 0, 0), (0, 0, 1),
@@ -238,11 +227,13 @@ if __name__ == '__cq_main__':
                       .translate((0, 0, W_wheel_ones - W_DIGIT_WHEEL_GEAR)))
                   .cut(digit_ones)
                   )
-    '''
+    return wheel_ones
 
+
+def make_digit_tens() -> cq.Workplane:
+    T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
     W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
                     + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
-    '''
     digit_tens = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
                                   low_to_high='RotateUp')
                   .rotate((0, 0, 0), (0, 0, 1),
@@ -261,17 +252,19 @@ if __name__ == '__cq_main__':
                          )
     wheel_tens = (make_digit_wheel_rgear(W_DIGIT_WHEEL_GEAR)
                   .union(
-        make_digit_wheel_inner(W_wheel_tens - W_DIGIT_WHEEL_GEAR)
-        .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
-        .cut(digit_tens)
-        .cut(digit_tens_mirror)
-        .translate((0, 0, W_wheel_ones))
-    )
-    '''
+                      make_digit_wheel_inner(W_wheel_tens - W_DIGIT_WHEEL_GEAR)
+                      .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
+                  .cut(digit_tens)
+                  .cut(digit_tens_mirror)
+                  # .translate((0, 0, W_wheel_ones))
+                  )
+    return wheel_tens
 
+
+def make_digit_ones_mirror() -> cq.Workplane:
+    T_digit = min(0.8, R_DIGIT_WHEEL_OUTER - R_DIGIT_WHEEL_INNER - T_WALL_MIN)
     W_wheel_ones_mirror = W_DIGIT_CHARACTER + W_DIGIT_SPACING
     W_wheel_ones_mirror_inner = W_wheel_ones_mirror - W_DIGIT_WHEEL_GEAR
-    '''
     digit_ones_mirror = (make_digit_tool(R_DIGIT_WHEEL_OUTER, T_digit,
                                          low_to_high='RotateDown')
                          .rotate((0, 0, 0), (0, 0, 1),
@@ -281,82 +274,198 @@ if __name__ == '__cq_main__':
                          )
     wheel_ones_mirror = (make_digit_wheel_rgear(W_DIGIT_WHEEL_GEAR)
                          .union(
-        make_digit_wheel_inner(W_wheel_ones_mirror_inner)
-        .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
-        .cut(digit_ones_mirror)
-        .translate((0, 0, -W_wheel_ones_mirror / 2))
-        .rotate((0, 0, 0), (1, 0, 0), 180)
-        .translate((0, 0,
-                    W_wheel_ones + W_wheel_tens
-                    + W_wheel_ones_mirror / 2))
+                             make_digit_wheel_inner(W_wheel_ones_mirror_inner)
+                             .translate((0, 0, W_DIGIT_WHEEL_GEAR)))
+                         .cut(digit_ones_mirror)
+                         .translate((0, 0, -W_wheel_ones_mirror / 2))
+                         .rotate((0, 0, 0), (1, 0, 0), 180)
+                         # .translate((0, 0,
+                         #             W_wheel_ones + W_wheel_tens
+                         #             + W_wheel_ones_mirror / 2))
+                         )
+    return wheel_ones_mirror
+
+
+if __name__ == '__cq_main__':
+    from scorecounter.parameters import (
+        W_DIGIT_SPACING, T_WALL_MIN, ANGLE_VIEWING
     )
-    '''
+    from scorecounter.parameters import (
+        R_CORE_INNER, R_CORE_OUTER, T_CORE_WALL, W_CARRY_GEAR, TOL_MOVING,
+        T_WALL_MIN, SG_CARRY, SG_SHAFT, RG_DIGIT, R_PEG_CARRY, R_SHAFT,
+        T_SHAFT_WALL, T_PEG_MIN, W_PEG, TOL_TIGHT_FIT
+    )
+    from cadquery import exporters
 
-    '''
-    show_object(wheel_ones)
-    show_object(wheel_tens)
-    show_object(wheel_ones_mirror)
+    W_BUMP_WHEEL = 10
+    bump_wheel = (cq.Workplane()
+                  .circle(R_DIGIT_WHEEL_OUTER)
+                  .circle(R_DIGIT_WHEEL_INNER)
+                  .extrude(W_BUMP_WHEEL)
+                  )
+    T_BUMP = 1.25
+    RATIO_BUMP = 0.7
+    angle_unit = math.radians(360 / len(DIGITS))
+    angle_bump = angle_unit * RATIO_BUMP
+    R_BUMP_OUTER = R_DIGIT_WHEEL_OUTER + T_BUMP
+    bump = (cq.Workplane()
+            .moveTo(R_DIGIT_WHEEL_OUTER * math.cos(angle_bump / 2),
+                    R_DIGIT_WHEEL_OUTER * math.sin(angle_bump / 2))
+            .radiusArc((R_DIGIT_WHEEL_OUTER * math.cos(-angle_bump / 2),
+                        R_DIGIT_WHEEL_OUTER * math.sin(-angle_bump / 2)),
+                       R_DIGIT_WHEEL_OUTER)
+            .lineTo(R_BUMP_OUTER * math.cos(-angle_bump / 2),
+                    R_BUMP_OUTER * math.sin(-angle_bump / 2))
+            .radiusArc((R_BUMP_OUTER * math.cos(angle_bump / 2),
+                        R_BUMP_OUTER * math.sin(angle_bump / 2)),
+                       -R_BUMP_OUTER)
+            .close()
+            .extrude(W_BUMP_WHEEL)
+            )
 
-    exporters.export(wheel_ones, 'wheel_ones.stl')
-    exporters.export(wheel_tens, 'wheel_tens.stl')
-    exporters.export(wheel_ones_mirror, 'wheel_ones_mirror.stl')
-    '''
+    for i in range(len(DIGITS)):
+        angle = angle_unit / 2 + angle_unit * i
+        bump_wheel = (bump_wheel
+                      .union(bump
+                             .rotate((0, 0, 0), (0, 0, 1),
+                                     math.degrees(angle)))
+                      )
 
-    print(W_wheel_tens)
+    W_spring = 0.8 * W_BUMP_WHEEL
+    R_spring = 1.1 * R_BUMP_OUTER
+    T_spring = 0.8
+    angle_spring = angle_bump
+    X_p1 = R_BUMP_OUTER * math.cos(angle_unit - angle_bump)
+    Y_p1 = R_BUMP_OUTER * math.sin(angle_unit - angle_bump)
+    D_BUMP = math.sqrt((X_p1 - R_BUMP_OUTER) ** 2 + Y_p1 ** 2)
+    T_BUMP = R_BUMP_OUTER - R_DIGIT_WHEEL_OUTER - TOL_MOVING
+    R_spring_bump = (T_BUMP ** 2 + D_BUMP ** 2 / 4) / (2 * T_BUMP)
+    D_chord = math.sqrt(R_spring_bump ** 2 - (D_BUMP / 2) ** 2)
 
-    # core_tens = (cq.Workplane()
-    #              .circle(R_CORE_OUTER)
-    #              .circle(R_CORE_INNER)
-    #              .extrude(W_wheel_tens - W_DIGIT_WHEEL_GEAR)
-    #              .tag('base')
-    #              .faces('>Z')
-    #              .workplane()
-    #              .circle(R_CORE_INNER + min(T_CORE_WALL / 2, T_WALL_MIN))
-    #              .circle(R_CORE_INNER)
-    #              .extrude(W_CARRY_GEAR + 2 * TOL_MOVING)
-    #              # Carry gear cutout.
-    #              .moveTo(RG_DIGIT.r0 - SG_CARRY.r0, 0)
-    #              .circle(SG_CARRY.ra + TOL_MOVING)
-    #              .extrude(W_CARRY_GEAR + 2 * TOL_MOVING, combine='cut')
-    #              # Peg.
-    #              .moveTo(RG_DIGIT.r0 - SG_CARRY.r0, 0)
-    #              .circle(R_PEG_CARRY)
-    #              .extrude(W_CARRY_GEAR + 2 * TOL_MOVING)
-    #              .moveTo(RG_DIGIT.r0 - SG_CARRY.r0, 0)
-    #              .circle(R_PEG_CARRY - T_PEG_MIN)
-    #              .extrude(W_CARRY_GEAR + 2 * TOL_MOVING + W_PEG)
-    #              # Peg support.
-    #              .moveTo(RG_DIGIT.r0 - SG_CARRY.r0, SG_CARRY.rd)
-    #              .radiusArc((RG_DIGIT.r0 - SG_CARRY.r0, -SG_CARRY.rd),
-    #                         -SG_CARRY.rd)
-    #              .lineTo(math.sqrt(R_CORE_INNER ** 2 - SG_CARRY.rd ** 2),
-    #                      -SG_CARRY.rd)
-    #              .radiusArc(
-    #                  (math.sqrt(R_CORE_INNER ** 2 - SG_CARRY.rd ** 2),
-    #                   SG_CARRY.rd),
-    #                  -R_CORE_INNER)
-    #              .close()
-    #              .extrude(-(W_wheel_tens - W_DIGIT_WHEEL_GEAR))
-    #              .edges('|Z')
-    #              .edges('not(>X)')
-    #              .edges('>X')
-    #              .fillet(SG_CARRY.rd / 4)
-    #              # Shaft hole.
-    #              .workplaneFromTagged('base')
-    #              .moveTo(-(RG_DIGIT.r0 - SG_SHAFT.r0), 0)
-    #              .circle(R_SHAFT + TOL_MOVING)
-    #              .circle(R_SHAFT + T_SHAFT_WALL)
-    #              .extrude(W_wheel_tens - W_DIGIT_WHEEL_GEAR
-    #                       + W_CARRY_GEAR + 2 * TOL_MOVING)
-    #              .moveTo(-(RG_DIGIT.r0 - SG_SHAFT.r0), 0)
-    #              .circle(R_SHAFT + TOL_MOVING)
-    #              .cutThruAll()
-    #              # .moveTo(-(RG_DIGIT.r0 - SG_SHAFT.r0), 0)
-    #              # .circle(SG_SHAFT.ra)
-    #              # .moveTo(RG_DIGIT.r0 - SG_CARRY.r0, 0)
-    #              # .circle(SG_CARRY.ra)
-    #              # .extrude(W_wheel_tens - W_DIGIT_WHEEL_GEAR
-    #              #          + W_CARRY_GEAR + 2 * TOL_MOVING)
-    #              )
+    H_slot = 2
+    T_slot = D_BUMP
 
-    # print(R_PEG_CARRY - T_PEG_MIN)
+    angle_spring = math.pi + angle_unit
+    X_mid = R_BUMP_OUTER * math.cos(angle_spring)
+    Y_mid = R_BUMP_OUTER * math.sin(angle_spring)
+    X_center = X_mid + D_chord * math.cos(angle_spring)
+    Y_center = Y_mid + D_chord * math.sin(angle_spring)
+    X_tangent = X_center + R_spring_bump * math.cos(angle_spring)
+    Y_tangent = Y_center + R_spring_bump * math.sin(angle_spring)
+    X_spring_center = X_tangent + math.sqrt(R_spring ** 2 - Y_tangent ** 2)
+    X_spring_outer = X_spring_center - R_spring
+    Y_spring_slot = T_slot / 2
+    X_spring_slot = (X_spring_center
+                     - math.sqrt(R_spring ** 2 - Y_spring_slot ** 2))
+
+    spring = (cq.Workplane()
+              # Make spring circles.
+              .moveTo(X_center, Y_center)
+              .circle(R_spring_bump)
+              .mirrorX()
+              .extrude(W_spring)
+              # Make spring.
+              .moveTo(X_tangent, Y_tangent)
+              .radiusArc((X_spring_outer, 0), R_spring)
+              .lineTo(X_spring_outer + T_spring, 0)
+              .radiusArc((X_tangent + T_spring, Y_tangent), -R_spring)
+              .close()
+              .mirrorX()
+              .extrude(W_spring)
+              # Make slot.
+              .moveTo(X_spring_slot, Y_spring_slot)
+              .radiusArc((X_spring_slot, -Y_spring_slot), -R_spring)
+              .lineTo(X_spring_slot - H_slot, -Y_spring_slot)
+              .lineTo(X_spring_slot - H_slot, Y_spring_slot)
+              .close()
+              .extrude(W_spring)
+              # Cut overhang support.
+              .faces('<X')
+              .workplane()
+              .moveTo(0, W_spring)
+              .lineTo(T_slot / 2,
+                      W_spring - (T_slot / 2) * math.tan(ANGLE_OVERHANG))
+              .lineTo(T_slot / 2, W_spring)
+              .close()
+              .extrude(-H_slot, combine='cut')
+              .moveTo(0, W_spring)
+              .lineTo(-T_slot / 2,
+                      W_spring - (T_slot / 2) * math.tan(ANGLE_OVERHANG))
+              .lineTo(-T_slot / 2, W_spring)
+              .close()
+              .extrude(-H_slot, combine='cut')
+              .translate((0, 0, (W_BUMP_WHEEL - W_spring) / 2))
+              )
+
+    T_box = 2 * R_BUMP_OUTER + 2 * TOL_MOVING + 2 * T_WALL_MIN
+    H_box = abs(X_spring_slot - H_slot) + T_WALL_MIN + TOL_TIGHT_FIT
+    W_box_inner = W_BUMP_WHEEL
+    W_box_slot = min(W_box_inner,
+                     W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                     + TOL_TIGHT_FIT + T_WALL_MIN)
+    T_box_slot = T_slot + 2 * (TOL_TIGHT_FIT + T_WALL_MIN)
+    H_box_slot = H_slot + TOL_TIGHT_FIT
+
+    bump_housing = (cq.Workplane()
+                    .moveTo(-H_box, 0)
+                    .rect(H_box, T_box, centered=(False, True))
+                    .extrude(-T_WALL_MIN)
+                    .moveTo(0, 0)
+                    .circle(R_CORE_OUTER + TOL_MOVING)
+                    .extrude(-T_WALL_MIN)
+                    .moveTo(0, 0)
+                    .circle(R_CORE_OUTER)
+                    .extrude(W_BUMP_WHEEL)
+                    .moveTo(-H_box / 2, T_box / 2 - T_WALL_MIN / 2)
+                    .rect(H_box, T_WALL_MIN)
+                    .mirrorX()
+                    .extrude(W_box_inner)
+                    .moveTo(-(H_box - T_WALL_MIN / 2), 0)
+                    .rect(T_WALL_MIN, T_box)
+                    .extrude(W_box_inner)
+                    .moveTo(-(H_box - T_WALL_MIN), 0)
+                    .rect(H_box_slot, T_box_slot, centered=(False, True))
+                    .extrude(W_box_slot)
+                    .faces('+X')
+                    .faces('not(>X or <X)')
+                    .workplane()
+                    .move(0, W_spring / 2 + (W_BUMP_WHEEL - W_spring) / 2)
+                    .rect(T_slot + 2 * TOL_TIGHT_FIT,
+                          W_spring + 2 * TOL_TIGHT_FIT)
+                    .extrude(-(H_slot + TOL_TIGHT_FIT), combine='cut')
+                    .moveTo(0,
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT)
+                    .lineTo(T_slot / 2 + TOL_TIGHT_FIT,
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT
+                            - (T_slot / 2 + TOL_TIGHT_FIT)
+                            * math.tan(ANGLE_OVERHANG))
+                    .lineTo(T_slot / 2 + TOL_TIGHT_FIT,
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT)
+                    .close()
+                    .extrude(-(H_slot + TOL_TIGHT_FIT))
+                    .moveTo(0,
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT)
+                    .lineTo(-(T_slot / 2 + TOL_TIGHT_FIT),
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT
+                            - (T_slot / 2 + TOL_TIGHT_FIT)
+                            * math.tan(ANGLE_OVERHANG))
+                    .lineTo(-(T_slot / 2 + TOL_TIGHT_FIT),
+                            W_spring + (W_BUMP_WHEEL - W_spring) / 2
+                            + TOL_TIGHT_FIT)
+                    .close()
+                    .extrude(-(H_slot + TOL_TIGHT_FIT))
+                    )
+
+    show_object(bump_wheel, name='bump_wheel')
+    show_object(spring, name='spring')
+    show_object(bump_housing, name='bump_housing')
+    exporters.export(bump_wheel, 'bump_wheel.stl')
+    exporters.export(spring, 'spring.stl')
+    exporters.export(bump_housing, 'bump_housing.stl')
+
+    print(H_box)

@@ -12,7 +12,7 @@ def __make_cone(R_cone: int | float, angle_cone: int | float) -> cq.Workplane:
     cone = (cq.Workplane('YZ')
             .moveTo(0, 0)
             .lineTo(R_cone, 0)
-            .lineTo(0, R_cone / math.tan(math.pi / 2 - angle_cone))
+            .lineTo(0, R_cone * math.tan(angle_cone))
             .close()
             .revolve()
             )
@@ -232,8 +232,7 @@ def make_core_carry_recv(core: cq.Workplane,
                          W_thinner: int | float
                          ) -> cq.Workplane:
     '''Assumes peg female will be at the bottom.'''
-    W_overhang = ((R_PEG_CARRY + TOL_TIGHT_FIT)
-                  / math.tan(math.pi / 2 - ANGLE_OVERHANG))
+    W_overhang = (R_PEG_CARRY + TOL_TIGHT_FIT) * math.tan(ANGLE_OVERHANG)
     Z = W_PEG + 2 * TOL_TIGHT_FIT
     W_recv = min(W_thinner + W_thicker,
                  Z + T_WALL_MIN + W_overhang)
@@ -303,14 +302,43 @@ def make_peg_standalone(W_peg) -> cq.Workplane:
     return peg
 
 
-def make_core_mirror() -> cq.Workplane:
-    W_all = W_DIGIT_CHARACTER + W_DIGIT_SPACING
+def make_core_ones_mirror() -> cq.Workplane:
+    W_wheel_ones_mirror = W_DIGIT_CHARACTER + W_DIGIT_SPACING
+    W_all = W_wheel_ones_mirror + 2 * TOL_MOVING
     W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
     W_thicker = W_all - W_thinner
-    core_mirror = make_core_bottom(W_thicker, W_thinner,
-                                   male_peg_orientation='Thinner')
-    core_mirror = make_core_shaft_gear(core_mirror, W_thicker, W_thinner)
-    return core_mirror
+    core_ones_mirror = make_core_bottom(W_thicker, W_thinner,
+                                        male_peg_orientation='Thinner')
+    core_ones_mirror = make_core_shaft_gear(core_ones_mirror,
+                                            W_thicker, W_thinner)
+    return core_ones_mirror
+
+
+def make_core_tens() -> cq.Workplane:
+    W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
+                    + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
+    # Goes into the ones ring
+    W_all = W_wheel_tens + W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+    W_thinner = 2 * W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+    W_thicker = W_all - W_thinner
+    core_tens = make_core_bottom(W_thicker, W_thinner,
+                                 male_peg_orientation='Thinner')
+    core_tens = make_core_shaft_from_bottom(core_tens, W_thicker + W_thinner)
+    core_tens = make_core_carry(core_tens, W_thicker, W_thinner)
+    return core_tens
+
+
+def make_core_ones() -> cq.Workplane:
+    W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
+    # Note: Tens ring extends into the ones.
+    W_all = W_wheel_ones - W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+    W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
+    W_thicker = W_all - W_thinner
+    core_ones = make_core_bottom(W_thicker, W_thinner,
+                                 male_peg_orientation='Thinner')
+    core_ones = make_core_shaft_gear(core_ones, W_thicker, W_thinner)
+    core_ones = make_core_carry_recv(core_ones, W_thicker, W_thinner)
+    return core_ones
 
 
 if __name__ == '__cq_main__':
@@ -320,26 +348,9 @@ if __name__ == '__cq_main__':
     )
     from cadquery import exporters
 
-    '''
-    W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
-                    + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
-    W_all = W_wheel_tens + W_DIGIT_WHEEL_GEAR  # Goes into the ones ring
-    W_thinner = 2 * W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thicker = W_all - W_thinner
-    core_tens = make_core_bottom(W_thicker, W_thinner,
-                                 male_peg_orientation='Thinner')
-    core_tens = make_core_shaft_from_bottom(core_tens, W_thicker + W_thinner)
-    core_tens = make_core_carry(core_tens, W_thicker, W_thinner)
-    exporters.export(core_tens, 'core_tens.stl')
-    '''
-
-    W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
-    # Note: Tens ring extends into the ones.
-    W_all = W_wheel_ones - W_DIGIT_WHEEL_GEAR
-    W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
-    W_thicker = W_all - W_thinner
-    core_ones = make_core_bottom(W_thicker, W_thinner,
-                                 male_peg_orientation='Thinner')
-    core_ones = make_core_shaft_gear(core_ones, W_thicker, W_thinner)
-    core_ones = make_core_carry_recv(core_ones, W_thicker, W_thinner)
+    core_ones = make_core_ones()
+    core_tens = make_core_tens()
+    core_ones_mirror = make_core_ones_mirror()
     exporters.export(core_ones, 'core_ones.stl')
+    exporters.export(core_tens, 'core_tens.stl')
+    exporters.export(core_ones_mirror, 'core_ones_mirror.stl')

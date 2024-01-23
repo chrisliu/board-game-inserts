@@ -84,6 +84,7 @@ R_PEG_CORE = R_PEG + T_WALL_MIN + TOL_TIGHT_FIT
 
 # Shaft gear.
 R_SHAFT = SG_SHAFT.rd - T_WALL_MIN - TOL_MOVING
+W_SHAFT_SQUARE = 2 * R_SHAFT / math.sqrt(2) - 2 * TOL_TIGHT_FIT
 
 # Sanity checks.
 assert N_TEETH_DIGIT % 2 == 0

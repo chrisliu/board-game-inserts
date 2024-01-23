@@ -1,10 +1,10 @@
 import math
 import cadquery as cq
-from scorecounter.parameters import W_CARRY_GEAR
 from typing import Optional
 from cq_gears import SpurGear
 from scorecounter.parameters import (
-    GEAR_MODULE, N_TEETH_CARRY, N_TEETH_SHAFT, W_CARRY_GEAR_MUTILATED
+    GEAR_MODULE, N_TEETH_CARRY, N_TEETH_SHAFT, W_CARRY_GEAR_MUTILATED,
+    W_SHAFT_SQUARE, TOL_TIGHT_FIT
 )
 
 
@@ -50,24 +50,62 @@ def make_carry_gear(width: int | float,
 if __name__ == '__cq_main__':
     from scorecounter.parameters import (
         W_DIGIT_WHEEL_GEAR, R_SHAFT, W_DIGIT_CHARACTER, W_DIGIT_SPACING,
-        R_PEG_CARRY, TOL_MOVING
+        R_PEG_CARRY, TOL_MOVING, W_DIGIT_CHARACTER, W_DIGIT_SPACING,
+        T_WALL_MIN, ANGLE_OVERHANG
     )
     from cadquery import exporters
 
-    '''
     shaft_gear = (make_shaft_gear(W_DIGIT_WHEEL_GEAR)
                   .faces('>Z')
                   .workplane()
                   .moveTo(0, 0)
-                  .circle(R_SHAFT)
-                  .extrude(W_DIGIT_CHARACTER + W_DIGIT_SPACING - W_DIGIT_WHEEL_GEAR)
+                  .rect(W_SHAFT_SQUARE + TOL_TIGHT_FIT,
+                        W_SHAFT_SQUARE + TOL_TIGHT_FIT)
+                  .cutThruAll()
                   )
     exporters.export(shaft_gear, 'shaft_gear.stl')
-    '''
 
+    W_wheel_ones = W_DIGIT_CHARACTER + W_DIGIT_SPACING
+    W_wheel_tens = (2 * W_DIGIT_CHARACTER + W_DIGIT_SPACING
+                    + max(T_WALL_MIN, W_DIGIT_SPACING / 2))
+    W_wheel_ones_mirror = W_DIGIT_CHARACTER + W_DIGIT_SPACING
+    W_shaft = (W_wheel_ones + W_wheel_tens + W_wheel_ones_mirror
+               + 6 * TOL_MOVING)
+
+    W_overhang = (R_SHAFT - W_SHAFT_SQUARE / 2) * math.tan(ANGLE_OVERHANG)
+
+    shaft = (cq.Workplane()
+             .moveTo(0, 0)
+             .rect(W_SHAFT_SQUARE, W_SHAFT_SQUARE)
+             .extrude(W_DIGIT_WHEEL_GEAR)
+             .faces('>Z')
+             .wires()
+             .toPending()
+             .workplane(offset=W_overhang)
+             .circle(R_SHAFT)
+             .loft()
+             .faces('>Z')
+             .workplane()
+             .circle(R_SHAFT)
+             .extrude(W_shaft - 2 * (W_DIGIT_WHEEL_GEAR + W_overhang))
+             .faces('>Z')
+             .wires()
+             .toPending()
+             .workplane(offset=W_overhang)
+             .rect(W_SHAFT_SQUARE, W_SHAFT_SQUARE)
+             .loft()
+             .faces('>Z')
+             .workplane()
+             .rect(W_SHAFT_SQUARE, W_SHAFT_SQUARE)
+             .extrude(W_DIGIT_WHEEL_GEAR)
+             )
+    exporters.export(shaft, 'shaft.stl')
+
+    '''
     carry_gear = (make_carry_gear(2 * W_DIGIT_WHEEL_GEAR)
                   .moveTo(0, 0)
                   .circle(R_PEG_CARRY + TOL_MOVING)
                   .cutThruAll()
                   )
     exporters.export(carry_gear, 'carry_gear.stl')
+    '''
