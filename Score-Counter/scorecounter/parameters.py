@@ -20,6 +20,7 @@ TOL_MOVING = 0.13  # Tolerance for moving components.
 TOL_TIGHT_FIT = 0.075  # Tolerance for a snug fit.
 ANGLE_OVERHANG = math.radians(25)  # Printer overhang angle.
 T_WALL_MIN = 0.8  # Minimum thickness of any walls.
+T_FLOOR_MIN = 0.5  # Minimum thickness of any floors.
 
 # General.
 ANGLE_VIEWING = math.radians(90 - 38)
@@ -48,6 +49,12 @@ R_PEG = 2.5
 W_PEG = 1.5
 T_PEG_MIN = 0.6
 T_SHAFT_WALL = 1.1
+
+# Spring.
+T_SPRING = 0.8  # Thickness of spring (controls stiffness).
+T_SPRING_BUMP = 0.8  # How much does the spring need to be displaced.
+T_SPRING_SLOT = 1.25  # Depth of spring slot.
+
 
 '''Derived constants'''
 
@@ -116,11 +123,55 @@ THETA_PEG_CORE_CENTER = math.acos(
     X_PEG_CORE_CENTER / (R_CORE_INNER - R_PEG_CORE))
 Y_PEG_CORE_CENTER = X_PEG_CORE_CENTER * math.tan(THETA_PEG_CORE_CENTER)
 
-
 # Shaft gear.
 R_SHAFT = SG_SHAFT.rd - T_WALL_MIN - TOL_MOVING
 W_SHAFT_SQUARE = 2 * R_SHAFT / math.sqrt(2) - 2 * TOL_TIGHT_FIT
 W_SHAFT = W_CORE_ONES + W_CORE_TENS + W_CORE_ONES_MIRROR
+
+# Spring
+W_SPRING = min(0.9 * W_DIGIT_WHEEL_BUMP,
+               W_DIGIT_WHEEL_BUMP - 2 * TOL_MOVING)
+R_SPRING = 1.1 * R_BUMP_OUTER
+ANGLE_SPRING = math.pi + ANGLE_BUMP_ALL
+
+# Radius of spring's bump is defined by compute the chord (T_BUMP_CORNER) and
+# the given spring displacement (T_SPRING_BUMP).
+# Compute distance between the closest corners of two bumps.
+__X_BUMP_CORNER = R_BUMP_OUTER * math.cos(ANGLE_BUMP_ALL - ANGLE_BUMP)
+__Y_BUMP_CORNER = R_BUMP_OUTER * math.sin(ANGLE_BUMP_ALL - ANGLE_BUMP)
+T_BUMP_CORNER = math.sqrt((__X_BUMP_CORNER - R_BUMP_OUTER) ** 2
+                          + __Y_BUMP_CORNER ** 2)
+R_SPRING_BUMP = ((T_SPRING_BUMP ** 2 + T_BUMP_CORNER ** 2 / 4)
+                 / (2 * T_SPRING_BUMP))
+H_SPRING_SLOT = T_BUMP_CORNER  # Size of spring slot.
+
+__ANGLE_BUMP_SPACE = ANGLE_BUMP_ALL - ANGLE_BUMP
+__X_BUMP_CORNER_1 = (R_BUMP_OUTER
+                     * math.cos(ANGLE_SPRING - (__ANGLE_BUMP_SPACE / 2)))
+__Y_BUMP_CORNER_1 = (R_BUMP_OUTER
+                     * math.sin(ANGLE_SPRING - (__ANGLE_BUMP_SPACE / 2)))
+__X_BUMP_CORNER_2 = (R_BUMP_OUTER
+                     * math.cos(ANGLE_SPRING + (__ANGLE_BUMP_SPACE / 2)))
+__Y_BUMP_CORNER_2 = (R_BUMP_OUTER
+                     * math.sin(ANGLE_SPRING + (__ANGLE_BUMP_SPACE / 2)))
+__X_BUMP_MIDPT = (__X_BUMP_CORNER_1 + __X_BUMP_CORNER_2) / 2
+__Y_BUMP_MIDPT = (__Y_BUMP_CORNER_1 + __Y_BUMP_CORNER_2) / 2
+__T_SPRING_BUMP_SAGITTA = R_SPRING_BUMP - T_SPRING_BUMP
+X_SPRING_BUMP_CENTER = (__X_BUMP_MIDPT
+                        + __T_SPRING_BUMP_SAGITTA * math.cos(ANGLE_SPRING))
+Y_SPRING_BUMP_CENTER = (__Y_BUMP_MIDPT
+                        + __T_SPRING_BUMP_SAGITTA * math.sin(ANGLE_SPRING))
+X_SPRING_BUMP_TANGENT = (X_SPRING_BUMP_CENTER
+                         + R_SPRING_BUMP * math.cos(ANGLE_SPRING))
+Y_SPRING_BUMP_TANGENT = (Y_SPRING_BUMP_CENTER
+                         + R_SPRING_BUMP * math.sin(ANGLE_SPRING))
+__X_SPRING_CENTER = (X_SPRING_BUMP_TANGENT
+                     + math.sqrt(R_SPRING ** 2 - Y_SPRING_BUMP_TANGENT ** 2))
+X_SPRING_OUTER = __X_SPRING_CENTER - R_SPRING
+Y_SPRING_SLOT = H_SPRING_SLOT / 2
+X_SPRING_SLOT = (__X_SPRING_CENTER
+                 - math.sqrt(R_SPRING ** 2 - Y_SPRING_SLOT ** 2))
+
 
 # Sanity checks.
 assert N_TEETH_DIGIT % 2 == 0
