@@ -1,6 +1,6 @@
 import cadquery as cq
 import math
-from typing import Literal, Tuple
+from typing import Literal, Optional, Tuple
 from scorecounter.parameters import (
     R_CORE_OUTER, R_CORE_INNER, R_PEG_CARRY, R_PEG, W_PEG, T_PEG_MIN,
     T_WALL_MIN, RG_DIGIT, SG_CARRY, SG_SHAFT, TOL_TIGHT_FIT, ANGLE_OVERHANG,
@@ -23,7 +23,8 @@ def make_core_ones() -> cq.Workplane:
     W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
     W_thicker = W_CORE_ONES - W_thinner
     core_ones = make_core_bottom(W_thicker, W_thinner,
-                                 male_peg_orientation='Thinner')
+                                 orientation_top='Thinner',
+                                 peg_top='Female')
     core_ones = make_core_shaft_gear(core_ones, W_thicker, W_thinner)
     core_ones = make_core_carry_recv(core_ones, W_thicker, W_thinner)
     return core_ones
@@ -34,7 +35,7 @@ def make_core_tens() -> cq.Workplane:
     W_thinner = 2 * W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
     W_thicker = W_CORE_TENS - W_thinner
     core_tens = make_core_bottom(W_thicker, W_thinner,
-                                 male_peg_orientation='Thinner')
+                                 orientation_top='Thinner')
     core_tens = make_core_shaft_from_bottom(core_tens, W_thicker + W_thinner)
     core_tens = make_core_carry(core_tens, W_thicker, W_thinner)
     return core_tens
@@ -44,25 +45,27 @@ def make_core_ones_mirror() -> cq.Workplane:
     W_thinner = W_DIGIT_WHEEL_GEAR + 2 * TOL_MOVING
     W_thicker = W_CORE_ONES_MIRROR - W_thinner
     core_ones_mirror = make_core_bottom(W_thicker, W_thinner,
-                                        male_peg_orientation='Thinner')
+                                        orientation_top='Thinner',
+                                        peg_top='Female')
     core_ones_mirror = make_core_shaft_gear(core_ones_mirror,
                                             W_thicker, W_thinner)
     return core_ones_mirror
 
 
 def make_core_bottom(W_thicker: int | float, W_thinner: int | float,
-                     male_peg_orientation: Literal['Thinner', 'Thicker']
+                     orientation_top: Literal['Thinner', 'Thicker'],
+                     peg_top: Optional[Literal['Male', 'Female']] = 'Male'
                      ) -> cq.Workplane:
     '''Make the wheel core with the default support pegs.
 
     The model consists of a thicker section of size W_thicker and a thinner
     section of W_thinner on top.
 
-    Male & female pegs are placed depending on male_peg_orientation
+    Male & female pegs are placed depending on orientation_top
       a) 'Thinner': male pegs extend from the thinner direction.
       b) 'Thicker': male pegs extend from the thicker direction.
 
-    male_peg_orientation also determines if an overhang-friendly feature
+    orientation_top also determines if an overhang-friendly feature
     should be modeled for the main ring.
 
     Dev-only:
@@ -70,7 +73,7 @@ def make_core_bottom(W_thicker: int | float, W_thinner: int | float,
     '''
 
     W_thicker_actual = W_thicker
-    if male_peg_orientation == 'Thicker':
+    if orientation_top == 'Thicker':
         W_overhang = ((R_CORE_OUTER - (R_CORE_INNER + T_WALL_MIN))
                       * math.tan(ANGLE_OVERHANG))
         W_thicker_actual -= W_overhang
@@ -84,7 +87,7 @@ def make_core_bottom(W_thicker: int | float, W_thinner: int | float,
                    .workplane()
                    )
 
-    if male_peg_orientation == 'Thicker':
+    if orientation_top == 'Thicker':
         core_bottom = (core_bottom
                        .circle(R_CORE_OUTER)
                        .workplane(offset=W_overhang)
@@ -138,36 +141,59 @@ def make_core_bottom(W_thicker: int | float, W_thinner: int | float,
                    .extrude(W_all)
                    )
 
-    # Draw male & female pegs.
-    if male_peg_orientation == 'Thinner':
-        core_bottom = core_bottom.faces('>Z').workplane()
-    elif male_peg_orientation == 'Thicker':
-        core_bottom = core_bottom.faces('<Z').workplane()
-    else:
-        raise
-    core_bottom = (core_bottom
-                   .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
-                   .circle(R_PEG)
-                   .mirrorX()
-                   .extrude(W_PEG)
-                   )
-
+    # Draw (male )& female pegs.
     R_female = R_PEG + TOL_TIGHT_FIT
     W_female = W_PEG + 2 * TOL_TIGHT_FIT
     cone = __make_cone(R_female, ANGLE_OVERHANG)
-    if male_peg_orientation == 'Thinner':
+    if peg_top == 'Male':
+        if orientation_top == 'Thinner':
+            core_bottom = core_bottom.faces('>Z').workplane()
+        elif orientation_top == 'Thicker':
+            core_bottom = core_bottom.faces('<Z').workplane()
+        core_bottom = (core_bottom
+                       .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
+                       .circle(R_PEG)
+                       .mirrorX()
+                       .extrude(W_PEG)
+                       )
+    elif peg_top == 'Female':
+        cone_top = cone
+        if orientation_top == 'Thinner':
+            core_bottom = core_bottom.faces('>Z').workplane()
+            Z = W_all - W_female
+            cone_top = cone.rotate((0, 0, 0), (0, 1, 0), 180)
+        elif orientation_top == 'Thicker':
+            core_bottom = core_bottom.faces('<Z').workplane()
+            Z = W_female
+        core_bottom = (core_bottom
+                       .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
+                       .circle(R_female)
+                       .mirrorX()
+                       .extrude(-W_female, combine='cut')
+                       .cut(cone_top
+                            .translate((X_PEG_CORE_CENTER,
+                                        Y_PEG_CORE_CENTER,
+                                        Z)))
+                       .cut(cone_top
+                            .translate((X_PEG_CORE_CENTER,
+                                        -Y_PEG_CORE_CENTER,
+                                        Z)))
+                       )
+
+    cone_bot = cone
+    if orientation_top == 'Thinner':
         core_bottom = core_bottom.faces('<Z').workplane()
         Z = W_female
-    elif male_peg_orientation == 'Thicker':
+    elif orientation_top == 'Thicker':
         core_bottom = core_bottom.faces('>Z').workplane()
         Z = W_all - W_female
-        cone = cone.rotate((0, 0, 0), (0, 1, 0), 180)
+        cone_bot = cone.rotate((0, 0, 0), (0, 1, 0), 180)
     core_bottom = (core_bottom
                    .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
                    .circle(R_female)
                    .mirrorX()
                    .extrude(-W_female, combine='cut')
-                   .cut(cone
+                   .cut(cone_bot
                         .translate((X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER, Z)))
                    .cut(cone
                         .translate((X_PEG_CORE_CENTER, -Y_PEG_CORE_CENTER, Z)))

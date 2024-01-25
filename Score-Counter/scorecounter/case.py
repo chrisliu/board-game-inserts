@@ -1,40 +1,22 @@
+from typing import Tuple
 import cadquery as cq
 import math
 from scorecounter.parameters import (
-    W_SPRING, R_SPRING, ANGLE_SPRING, R_SPRING_BUMP,
-    R_BUMP_OUTER, T_SPRING_BUMP, ANGLE_BUMP, ANGLE_BUMP_ALL, T_SPRING,
+    W_SPRING, R_SPRING, R_SPRING_BUMP, R_BUMP_OUTER, T_SPRING,
     H_SPRING_SLOT, T_SPRING_SLOT, ANGLE_OVERHANG,
     X_SPRING_BUMP_CENTER, Y_SPRING_BUMP_CENTER,
     X_SPRING_BUMP_TANGENT, Y_SPRING_BUMP_TANGENT, X_SPRING_SLOT, Y_SPRING_SLOT,
-    X_SPRING_OUTER
+    X_SPRING_OUTER, H_CASE_HALF, R_CASE_CORE_BUMP, W_CASE_INNER,
+    T_CASE_BUMP_WALL,
+    T_CASE_CORE_WALL, T_CASE, T_CASE_DIGIT_WALL, W_DIGIT_WHEEL_BUMP,
+    TOL_MOVING, TOL_TIGHT_FIT, T_WALL_MIN, T_CASE_FLOOR,
+    X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER, R_PEG, W_PEG,
+    W_CASE_INTERFACE, H_COVER_INTERFACE, W_COVER_INTERFACE_WALL,
+    T_CASE_INTERFACE_MALE, R_PRINTER_FILLET, R_CASE_CORE_DIGIT
 )
 
 
 def make_spring() -> cq.Workplane:
-    '''
-    # Midpoint between two bump edges.
-    angle_space = ANGLE_BUMP_ALL - ANGLE_BUMP
-    X_corner1 = R_BUMP_OUTER * math.cos(ANGLE_SPRING - (angle_space / 2))
-    Y_corner1 = R_BUMP_OUTER * math.sin(ANGLE_SPRING - (angle_space / 2))
-    X_corner2 = R_BUMP_OUTER * math.cos(ANGLE_SPRING + (angle_space / 2))
-    Y_corner2 = R_BUMP_OUTER * math.sin(ANGLE_SPRING + (angle_space / 2))
-    X_mid = (X_corner1 + X_corner2) / 2
-    Y_mid = (Y_corner1 + Y_corner2) / 2
-    # Center of spring bump.
-    T_sagitta = R_SPRING_BUMP - T_SPRING_BUMP
-    X_center = X_mid + T_sagitta * math.cos(ANGLE_SPRING)
-    Y_center = Y_mid + T_sagitta * math.sin(ANGLE_SPRING)
-    # Furthest point from ANGLE_SPRING (roughly tangent to spring angle)
-    X_tangent = X_center + R_SPRING_BUMP * math.cos(ANGLE_SPRING)
-    Y_tangent = Y_center + R_SPRING_BUMP * math.sin(ANGLE_SPRING)
-    # Compute center of spring.
-    X_spring_center = X_tangent + math.sqrt(R_SPRING ** 2 - Y_tangent ** 2)
-    X_spring_outer = X_spring_center - R_SPRING
-    Y_spring_slot = H_SPRING_SLOT / 2
-    X_spring_slot = (X_spring_center
-                     - math.sqrt(R_SPRING ** 2 - Y_spring_slot ** 2))
-    '''
-
     spring = (cq.Workplane()
               # Make spring bumps.
               .moveTo(X_SPRING_BUMP_CENTER, Y_SPRING_BUMP_CENTER)
@@ -83,7 +65,7 @@ def _make_wheel_bump() -> cq.Workplane:
         W_DIGIT_WHEEL_BUMP, T_BUMP, ANGLE_BUMP_ALL, ANGLE_BUMP,
         R_DIGIT_WHEEL_OUTER, R_DIGIT_WHEEL_INNER, DIGITS
     )
-    W_BUMP_WHEEL = W_SPRING
+    W_BUMP_WHEEL = W_DIGIT_WHEEL_BUMP
     bump_wheel = (cq.Workplane()
                   .circle(R_DIGIT_WHEEL_OUTER)
                   .circle(R_DIGIT_WHEEL_INNER)
@@ -116,7 +98,221 @@ def _make_wheel_bump() -> cq.Workplane:
     return bump_wheel
 
 
+def __compute_side_interface() -> Tuple[int | float,
+                                        int | float,
+                                        int | float,
+                                        int | float]:
+    W = T_CASE_INTERFACE_MALE
+    y_center = T_CASE / 2 - T_CASE_BUMP_WALL + W / 2
+    x_top = -(H_COVER_INTERFACE + T_WALL_MIN)
+    x_bot = -(H_CASE_HALF - T_CASE_FLOOR + W + TOL_TIGHT_FIT)
+    x_center = (x_top + x_bot) / 2
+    H = (x_top - x_bot) - 2 * TOL_TIGHT_FIT
+    return x_center, y_center, H, W
+
+
+def __compute_floor_interface() -> Tuple[int | float,
+                                         int | float,
+                                         int | float,
+                                         int | float]:
+    H = T_CASE_INTERFACE_MALE
+    x_center = -(H_CASE_HALF - T_CASE_FLOOR + H / 2)
+    y_center = 0
+    y_left = T_CASE / 2 - T_CASE_BUMP_WALL + T_CASE_INTERFACE_MALE
+    W = 2 * (y_left - y_center)
+    return x_center, y_center, H, W
+
+
+def make_case_bump_side() -> cq.Workplane:
+    W_bump_side_inner = W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING
+    H_spring_f_slot = H_SPRING_SLOT + 2 * TOL_TIGHT_FIT
+    W_spring_f_slot = W_SPRING + 2 * TOL_TIGHT_FIT
+    T_spring_f_slot = T_SPRING_SLOT + TOL_TIGHT_FIT
+    y_spring_f_slot_top = (W_DIGIT_WHEEL_BUMP / 2 + TOL_MOVING
+                           + W_spring_f_slot / 2)
+    x_side_i_center, y_side_i_center, H_side_i, T_side_i = \
+        __compute_side_interface()
+    x_floor_i_center, y_floor_i_center, H_floor_i, T_floor_i = \
+        __compute_floor_interface()
+
+    case = (cq.Workplane()
+            .circle(R_CASE_CORE_BUMP)
+            .extrude(T_CASE_CORE_WALL)
+            .moveTo(-H_CASE_HALF, 0)
+            .rect(H_CASE_HALF, T_CASE, centered=(False, True))
+            .extrude(T_CASE_CORE_WALL)
+            # Make peg.
+            .faces('>Z')
+            .workplane()
+            .tag('inner')
+            .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
+            .circle(R_PEG)
+            .mirrorX()
+            .extrude(W_PEG)
+            # Make floor.
+            .moveTo(-H_CASE_HALF, 0)
+            .rect(T_CASE_FLOOR, T_CASE, centered=(False, True))
+            .extrude(W_bump_side_inner)
+            # Cut spring slot.
+            .faces('+X')
+            .faces('<X')
+            .workplane()
+            .moveTo(0, W_DIGIT_WHEEL_BUMP / 2 + TOL_MOVING)
+            .rect(H_spring_f_slot, W_spring_f_slot)
+            .extrude(-T_spring_f_slot, combine='cut')
+            .moveTo(0, y_spring_f_slot_top)
+            .lineTo(H_spring_f_slot / 2, y_spring_f_slot_top)
+            .lineTo(H_spring_f_slot / 2,
+                    y_spring_f_slot_top
+                    - H_spring_f_slot / 2 * math.tan(ANGLE_OVERHANG))
+            .close()
+            .moveTo(0, y_spring_f_slot_top)
+            .lineTo(-H_spring_f_slot / 2, y_spring_f_slot_top)
+            .lineTo(-H_spring_f_slot / 2,
+                    y_spring_f_slot_top
+                    - H_spring_f_slot / 2 * math.tan(ANGLE_OVERHANG))
+            .close()
+            .extrude(-T_spring_f_slot)
+            # Reset workplane.
+            .workplaneFromTagged('inner')
+            # Make side walls.
+            .moveTo(-H_CASE_HALF, T_CASE / 2 - T_CASE_BUMP_WALL)
+            .rect(H_CASE_HALF, T_CASE_BUMP_WALL, centered=False)
+            .mirrorX()
+            .extrude(W_bump_side_inner)
+            .faces('>Z')
+            .workplane()
+            # Make side wall interface.
+            .moveTo(x_side_i_center, y_side_i_center)
+            .rect(H_side_i, T_side_i)
+            .mirrorX()
+            .extrude(W_CASE_INTERFACE)
+            .moveTo(x_floor_i_center, y_floor_i_center)
+            .rect(H_floor_i, T_floor_i)
+            .extrude(W_CASE_INTERFACE)
+            # Fillet.
+            .faces('<Z')
+            .edges('not(<X)')
+            .fillet(R_PRINTER_FILLET)
+            )
+    return case
+
+
+def make_case_opposite() -> cq.Workplane:
+    W_bump_side_inner = W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING
+    W_inner = W_CASE_INNER - W_bump_side_inner
+    x_side_i_center, y_side_i_center, H_side_i, T_side_i = \
+        __compute_side_interface()
+    x_floor_i_center, y_floor_i_center, H_floor_i, T_floor_i = \
+        __compute_floor_interface()
+
+    case = (cq.Workplane()
+            .circle(R_CASE_CORE_DIGIT)
+            .extrude(T_CASE_CORE_WALL)
+            .moveTo(-H_CASE_HALF, 0)
+            .rect(H_CASE_HALF, T_CASE, centered=(False, True))
+            .extrude(T_CASE_CORE_WALL)
+            # Make peg holes.
+            .faces('>Z')
+            .workplane()
+            .tag('inner')
+            .moveTo(X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER)
+            .circle(R_PEG)
+            .mirrorX()
+            .extrude(W_PEG)
+            # Make floor.
+            .moveTo(-H_CASE_HALF, 0)
+            .rect(T_CASE_FLOOR, T_CASE, centered=(False, True))
+            .extrude(W_inner)
+            # Make side walls.
+            .moveTo(-H_CASE_HALF, T_CASE / 2 - T_CASE_DIGIT_WALL)
+            .rect(H_CASE_HALF, T_CASE_DIGIT_WALL, centered=False)
+            .mirrorX()
+            .extrude(W_inner)
+            # Make side wall interface.
+            .faces('>Z')
+            .workplane()
+            .moveTo(x_side_i_center, y_side_i_center)
+            .rect(H_side_i + 2 * TOL_TIGHT_FIT, T_side_i + 2 * TOL_TIGHT_FIT)
+            .mirrorX()
+            .extrude(-W_CASE_INTERFACE, combine='cut')
+            .moveTo(x_floor_i_center, y_floor_i_center)
+            .rect(H_floor_i + 2 * TOL_TIGHT_FIT, T_floor_i + 2 * TOL_TIGHT_FIT)
+            .extrude(-W_CASE_INTERFACE, combine='cut')
+            # Fillet
+            .faces('<Z')
+            .edges('|X')
+            .fillet(R_PRINTER_FILLET)
+            )
+
+    T_cover_i = T_WALL_MIN + TOL_TIGHT_FIT
+    W_case_all = W_inner + T_CASE_CORE_WALL
+    T_cover_i_hook = 2 * T_WALL_MIN + TOL_TIGHT_FIT
+    H_cover_i_hook = T_WALL_MIN + 2 * TOL_TIGHT_FIT
+    W_cover_i_hook = W_case_all - 2 * W_COVER_INTERFACE_WALL
+    cover_tool_l = (cq.Workplane()
+                    .moveTo(-H_COVER_INTERFACE / 2,
+                            T_CASE / 2 - T_cover_i / 2)
+                    .rect(H_COVER_INTERFACE, T_cover_i)
+                    .extrude(W_case_all / 2, both=True)
+                    .moveTo(-H_COVER_INTERFACE + H_cover_i_hook / 2,
+                            T_CASE / 2 - T_cover_i_hook / 2)
+                    .rect(H_cover_i_hook, T_cover_i_hook)
+                    .extrude(W_cover_i_hook / 2, both=True)
+                    .faces('+Z')
+                    .faces('not(>Z)')
+                    .edges('>X')
+                    .chamfer((H_cover_i_hook - 0.1),
+                             (H_cover_i_hook - 0.1) * math.tan(ANGLE_OVERHANG))
+                    )
+    cover_tool_r = (cq.Workplane()
+                    .moveTo(-H_COVER_INTERFACE / 2,
+                            -(T_CASE / 2 - T_cover_i / 2))
+                    .rect(H_COVER_INTERFACE, T_cover_i)
+                    .extrude(W_case_all / 2, both=True)
+                    .moveTo(-H_COVER_INTERFACE + H_cover_i_hook / 2,
+                            -(T_CASE / 2 - T_cover_i_hook / 2))
+                    .rect(H_cover_i_hook, T_cover_i_hook)
+                    .extrude(W_cover_i_hook / 2, both=True)
+                    .faces('+Z')
+                    .faces('not(>Z)')
+                    .edges('>X')
+                    .chamfer((H_cover_i_hook - 0.1) * math.tan(ANGLE_OVERHANG),
+                             (H_cover_i_hook - 0.1))
+                    )
+    case = (case
+            .cut(cover_tool_l.translate((0, 0, W_case_all / 2)))
+            .cut(cover_tool_r.translate((0, 0, W_case_all / 2)))
+            )
+    return case
+
+
 if __name__ == '__cq_main__':
+    import os
+    from cadquery import exporters
+    from scorecounter.parameters import DIR_EXPORT
     wheel_bump = _make_wheel_bump()
 
-    spring = make_spring()
+    spring = (make_spring()
+              .translate((0, 0, TOL_MOVING + (W_DIGIT_WHEEL_BUMP - W_SPRING) / 2))
+              )
+    exporters.export(spring, os.path.join(DIR_EXPORT, 'spring.stl'))
+
+    case_bump = (make_case_bump_side()
+                 .translate((0, 0, -T_CASE_CORE_WALL))
+                 )
+    exporters.export(case_bump, os.path.join(DIR_EXPORT, 'case_bump.stl'))
+
+    case_opposite = (make_case_opposite()
+                     # .translate((0, 0, -T_CASE_CORE_WALL))
+                     .translate((0, 0,
+                                 -(W_CASE_INNER
+                                   - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+                                   + T_CASE_CORE_WALL)))
+                     .rotate((0, 0, 0), (1, 0, 0), 180)
+                     .translate((0, 0,
+                                 W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+                                )
+                     )
+    exporters.export(case_opposite,
+                     os.path.join(DIR_EXPORT, 'case_opposite.stl'))

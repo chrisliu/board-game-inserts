@@ -20,7 +20,8 @@ TOL_MOVING = 0.13  # Tolerance for moving components.
 TOL_TIGHT_FIT = 0.075  # Tolerance for a snug fit.
 ANGLE_OVERHANG = math.radians(25)  # Printer overhang angle.
 T_WALL_MIN = 0.8  # Minimum thickness of any walls.
-T_FLOOR_MIN = 0.5  # Minimum thickness of any floors.
+T_FLOOR_MIN = 0.8  # Minimum thickness of any floors.
+R_PRINTER_FILLET = 0.8  # Fillet with no overhang.
 
 # General.
 ANGLE_VIEWING = math.radians(90 - 38)
@@ -52,8 +53,15 @@ T_SHAFT_WALL = 1.1
 
 # Spring.
 T_SPRING = 0.8  # Thickness of spring (controls stiffness).
-T_SPRING_BUMP = 0.8  # How much does the spring need to be displaced.
-T_SPRING_SLOT = 1.25  # Depth of spring slot.
+T_SPRING_BUMP = 0.9  # How much does the spring need to be displaced.
+T_SPRING_SLOT = 1.75  # Depth of spring slot.
+
+# Case.
+W_CASE_INTERFACE = 2  # Thickness of walls joining the case.
+T_CASE_CORE_WALL = 1.2  # Wall supporting the core.
+
+# Cover.
+T_COVER_WALL = 1
 
 
 '''Derived constants'''
@@ -128,7 +136,7 @@ R_SHAFT = SG_SHAFT.rd - T_WALL_MIN - TOL_MOVING
 W_SHAFT_SQUARE = 2 * R_SHAFT / math.sqrt(2) - 2 * TOL_TIGHT_FIT
 W_SHAFT = W_CORE_ONES + W_CORE_TENS + W_CORE_ONES_MIRROR
 
-# Spring
+# Spring.
 W_SPRING = min(0.9 * W_DIGIT_WHEEL_BUMP,
                W_DIGIT_WHEEL_BUMP - 2 * TOL_MOVING)
 R_SPRING = 1.1 * R_BUMP_OUTER
@@ -172,6 +180,24 @@ Y_SPRING_SLOT = H_SPRING_SLOT / 2
 X_SPRING_SLOT = (__X_SPRING_CENTER
                  - math.sqrt(R_SPRING ** 2 - Y_SPRING_SLOT ** 2))
 
+# Case.
+# Height of case from the center of core.
+H_CASE_HALF = (abs(X_SPRING_SLOT) + T_SPRING_SLOT + T_FLOOR_MIN
+               + 2 * TOL_TIGHT_FIT)
+R_CASE_CORE_BUMP = RG_DIGIT.rd + TOL_MOVING
+R_CASE_CORE_DIGIT = R_DIGIT_WHEEL_OUTER + 2 * TOL_MOVING
+W_CASE_INNER = (W_CORE_ONES + W_CORE_TENS + W_CORE_ONES_MIRROR
+                + 2 * TOL_TIGHT_FIT)
+T_CASE_BUMP_WALL = 2 * (T_WALL_MIN + TOL_TIGHT_FIT)
+T_CASE = 2 * (R_DIGIT_WHEEL_OUTER + T_BUMP + 2 * TOL_MOVING + T_CASE_BUMP_WALL)
+T_CASE_DIGIT_WALL = T_CASE / 2 - R_CASE_CORE_DIGIT
+T_CASE_FLOOR = H_CASE_HALF - abs(X_SPRING_OUTER)
+
+T_CASE_INTERFACE_MALE = T_WALL_MIN
+
+# Overlap between cover and case.
+H_COVER_INTERFACE = 2 * T_WALL_MIN + 2 * TOL_TIGHT_FIT
+W_COVER_INTERFACE_WALL = T_WALL_MIN
 
 # Sanity checks.
 assert N_TEETH_DIGIT % 2 == 0
@@ -180,3 +206,4 @@ assert RG_DIGIT.rim_r == R_DIGIT_WHEEL_OUTER
 assert RG_DIGIT.r0 >= (SG_CARRY.ra / 2 + SG_CARRY.r0 / 2
                        + SG_SHAFT.ra / 2 + SG_SHAFT.r0 / 2
                        + TOL_MOVING)
+assert T_CASE_DIGIT_WALL >= 3 * T_WALL_MIN
