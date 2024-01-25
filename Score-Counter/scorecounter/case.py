@@ -12,7 +12,9 @@ from scorecounter.parameters import (
     TOL_MOVING, TOL_TIGHT_FIT, T_WALL_MIN, T_CASE_FLOOR,
     X_PEG_CORE_CENTER, Y_PEG_CORE_CENTER, R_PEG, W_PEG,
     W_CASE_INTERFACE, H_COVER_INTERFACE, W_COVER_INTERFACE_WALL,
-    T_CASE_INTERFACE_MALE, R_PRINTER_FILLET, R_CASE_CORE_DIGIT
+    T_CASE_INTERFACE_MALE, R_PRINTER_FILLET, R_CASE_CORE_DIGIT,
+    T_COVER_WALL, ANGLE_VIEWING, W_DIGIT_CHARACTER, W_DIGIT_SPACING, DIGITS,
+    W_WHEEL_ONES_MIRROR, W_WHEEL_TENS, W_WHEEL_ONES
 )
 
 
@@ -287,10 +289,101 @@ def make_case_opposite() -> cq.Workplane:
     return case
 
 
+def make_digit_cover() -> cq.Workplane:
+    W_bump_side_inner = W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING
+    W_case = W_CASE_INNER - W_bump_side_inner + T_CASE_CORE_WALL
+    W_cover = W_case - TOL_TIGHT_FIT
+
+    R_digit_cover_inner = R_CASE_CORE_DIGIT + TOL_TIGHT_FIT
+    R_digit_cover_outer = R_digit_cover_inner + T_COVER_WALL
+    cover = (cq.Workplane()
+             # Create semi-circle.
+             .moveTo(0, R_digit_cover_inner)
+             .radiusArc((0, -R_digit_cover_inner), R_digit_cover_inner)
+             .lineTo(0, -R_digit_cover_outer)
+             .radiusArc((0, R_digit_cover_outer), -R_digit_cover_outer)
+             .close()
+             .extrude(W_cover)
+             # Provide tolerance at bottom.
+             .moveTo(0, 0)
+             .rect(2 * TOL_TIGHT_FIT, 2 * R_digit_cover_outer)
+             .extrude(W_cover, combine='cut')
+             )
+
+    Z_bump_digit_center = (T_CASE_CORE_WALL + W_WHEEL_ONES_MIRROR
+                           + 3 * TOL_MOVING + W_WHEEL_TENS)
+    Z_mirror_digit_center = (T_CASE_CORE_WALL + TOL_MOVING +
+                             W_WHEEL_ONES_MIRROR)
+    W_digit = min(2 * W_DIGIT_CHARACTER + 2 * W_DIGIT_SPACING + 2 * TOL_MOVING,
+                  2 * (W_cover - Z_bump_digit_center - T_WALL_MIN))
+    angle_digit = math.radians(360 / len(DIGITS))
+    digit_tool = (cq.Workplane()
+                  .moveTo(0, 0)
+                  .lineTo(R_digit_cover_outer * math.cos(angle_digit / 2),
+                          R_digit_cover_outer * math.sin(angle_digit / 2))
+                  .radiusArc(
+                      (R_digit_cover_outer * math.cos(-angle_digit / 2),
+                       R_digit_cover_outer * math.sin(-angle_digit / 2)),
+                      R_digit_cover_outer)
+                  .close()
+                  .extrude(W_digit)
+                  )
+    cover = (cover
+             # Cut digit slots.
+             .cut(digit_tool
+                  .translate((0, 0, Z_bump_digit_center - W_digit / 2))
+                  .rotate((0, 0, 0), (0, 0, 1), math.degrees(ANGLE_VIEWING)))
+             .cut(digit_tool
+                  .translate((0, 0, Z_mirror_digit_center - W_digit / 2))
+                  .rotate((0, 0, 0), (0, 0, 1), math.degrees(-ANGLE_VIEWING)))
+             )
+    # Create interface.
+    X_inner = TOL_TIGHT_FIT
+    Y_inner = math.sqrt(R_digit_cover_inner ** 2 - X_inner ** 2)
+    cover = (cover
+             .moveTo(X_inner, Y_inner)
+             .rect(T_WALL_MIN, T_CASE / 2 - Y_inner, centered=False)
+             .mirrorX()
+             .extrude(W_cover)
+             .moveTo(X_inner - H_COVER_INTERFACE,
+                     T_CASE / 2 - T_WALL_MIN)
+             .rect(H_COVER_INTERFACE, T_WALL_MIN, centered=False)
+             .mirrorX()
+             .extrude(W_cover)
+             # Interface peg.
+             .moveTo(X_inner - H_COVER_INTERFACE,
+                     T_CASE / 2 - 2 * T_WALL_MIN)
+             .rect(T_WALL_MIN, T_WALL_MIN, centered=False)
+             .mirrorX()
+             .extrude(W_cover - W_COVER_INTERFACE_WALL - TOL_TIGHT_FIT)
+             .moveTo(X_inner - H_COVER_INTERFACE,
+                     T_CASE / 2 - 2 * T_WALL_MIN)
+             .rect(T_WALL_MIN, T_WALL_MIN, centered=False)
+             .mirrorX()
+             .extrude(W_COVER_INTERFACE_WALL + TOL_TIGHT_FIT, combine='cut')
+             # Chamfer.
+             .faces('+Z')
+             .faces('not(>Z)')
+             .faces('>Z')
+             .edges('>X')
+             .chamfer((T_WALL_MIN - 0.1),
+                      (T_WALL_MIN - 0.1) * math.tan(ANGLE_OVERHANG))
+             .faces('-Z')
+             .faces('not(<Z)')
+             .faces('<Z')
+             .edges('|X')
+             .edges('not(>Y or <Y)')
+             .chamfer((T_WALL_MIN - 0.1),
+                      (T_WALL_MIN - 0.1) * math.tan(ANGLE_OVERHANG))
+             )
+    return cover
+
+
 if __name__ == '__cq_main__':
     import os
     from cadquery import exporters
     from scorecounter.parameters import DIR_EXPORT
+
     wheel_bump = _make_wheel_bump()
 
     spring = (make_spring()
@@ -316,3 +409,15 @@ if __name__ == '__cq_main__':
                      )
     exporters.export(case_opposite,
                      os.path.join(DIR_EXPORT, 'case_opposite.stl'))
+
+    digit_cover = (make_digit_cover()
+                   .translate((0, 0,
+                               -(W_CASE_INNER
+                                 - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+                                 + T_CASE_CORE_WALL)))
+                   .rotate((0, 0, 0), (1, 0, 0), 180)
+                   .translate((0, 0,
+                               W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING))
+                   )
+    exporters.export(digit_cover,
+                     os.path.join(DIR_EXPORT, 'digit_cover.stl'))
