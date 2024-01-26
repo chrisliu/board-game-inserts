@@ -14,8 +14,13 @@ from scorecounter.parameters import (
     W_CASE_INTERFACE, H_COVER_INTERFACE, W_COVER_INTERFACE_WALL,
     T_CASE_INTERFACE_MALE, R_PRINTER_FILLET, R_CASE_CORE_DIGIT,
     T_COVER_WALL, ANGLE_VIEWING, W_DIGIT_CHARACTER, W_DIGIT_SPACING, DIGITS,
-    W_WHEEL_ONES_MIRROR, W_WHEEL_TENS, W_WHEEL_ONES
+    W_WHEEL_ONES_MIRROR, W_WHEEL_TENS, W_WHEEL_ONES,
+    R_LOCK_HEAD, R_LOCK_BODY, T_LOCK_SLOT, T_CASE_LOCK_WALL_MIN,
+    T_LOCK_BOLT, H_LOCK_HEAD, H_LOCK_SLOT, W_LOCK_SLOT, H_LOCK_BODY,
+    H_LOCK_BOLT, ANGLE_LOCK_BOLT, R_LOCK_BOLT, H_NUT_TOP, H_NUT_BOT,
+    T_NUT, W_NUT
 )
+from scorecounter.geometry import _compute_closest_point_on_circle
 
 
 def make_spring() -> cq.Workplane:
@@ -126,16 +131,7 @@ def __compute_floor_interface() -> Tuple[int | float,
 
 
 def make_case_bump_side() -> cq.Workplane:
-    W_bump_side_inner = W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING
-    H_spring_f_slot = H_SPRING_SLOT + 2 * TOL_TIGHT_FIT
-    W_spring_f_slot = W_SPRING + 2 * TOL_TIGHT_FIT
-    T_spring_f_slot = T_SPRING_SLOT + TOL_TIGHT_FIT
-    y_spring_f_slot_top = (W_DIGIT_WHEEL_BUMP / 2 + TOL_MOVING
-                           + W_spring_f_slot / 2)
-    x_side_i_center, y_side_i_center, H_side_i, T_side_i = \
-        __compute_side_interface()
-    x_floor_i_center, y_floor_i_center, H_floor_i, T_floor_i = \
-        __compute_floor_interface()
+    W_inner = W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING
 
     case = (cq.Workplane()
             .circle(R_CASE_CORE_BUMP)
@@ -154,7 +150,15 @@ def make_case_bump_side() -> cq.Workplane:
             # Make floor.
             .moveTo(-H_CASE_HALF, 0)
             .rect(T_CASE_FLOOR, T_CASE, centered=(False, True))
-            .extrude(W_bump_side_inner)
+            .extrude(W_inner)
+            )
+
+    H_spring_f_slot = H_SPRING_SLOT + 2 * TOL_TIGHT_FIT
+    W_spring_f_slot = W_SPRING + 2 * TOL_TIGHT_FIT
+    T_spring_f_slot = T_SPRING_SLOT + TOL_TIGHT_FIT
+    y_spring_f_slot_top = (W_DIGIT_WHEEL_BUMP / 2 + TOL_MOVING
+                           + W_spring_f_slot / 2)
+    case = (case
             # Cut spring slot.
             .faces('+X')
             .faces('<X')
@@ -175,15 +179,23 @@ def make_case_bump_side() -> cq.Workplane:
                     - H_spring_f_slot / 2 * math.tan(ANGLE_OVERHANG))
             .close()
             .extrude(-T_spring_f_slot)
+            )
+
+    x_side_i_center, y_side_i_center, H_side_i, T_side_i = \
+        __compute_side_interface()
+    x_floor_i_center, y_floor_i_center, H_floor_i, T_floor_i = \
+        __compute_floor_interface()
+    case = (case
             # Reset workplane.
             .workplaneFromTagged('inner')
             # Make side walls.
             .moveTo(-H_CASE_HALF, T_CASE / 2 - T_CASE_BUMP_WALL)
             .rect(H_CASE_HALF, T_CASE_BUMP_WALL, centered=False)
             .mirrorX()
-            .extrude(W_bump_side_inner)
+            .extrude(W_inner)
             .faces('>Z')
             .workplane()
+            .tag('interface')
             # Make side wall interface.
             .moveTo(x_side_i_center, y_side_i_center)
             .rect(H_side_i, T_side_i)
@@ -192,6 +204,34 @@ def make_case_bump_side() -> cq.Workplane:
             .moveTo(x_floor_i_center, y_floor_i_center)
             .rect(H_floor_i, T_floor_i)
             .extrude(W_CASE_INTERFACE)
+            )
+
+    W_all = T_CASE_CORE_WALL + W_inner
+    H_exc_floor = H_NUT_BOT - T_CASE_INTERFACE_MALE
+    H_case_floor = H_CASE_HALF - T_CASE_FLOOR
+    case = (case
+            # Make case lock.
+            .moveTo(x_floor_i_center - H_floor_i / 2, y_floor_i_center)
+            .rect(H_NUT_BOT, T_NUT, centered=(False, True))
+            .extrude(W_NUT)
+            .faces('+X')
+            .faces('>>X[2]')
+            .workplane(origin=(0, 0, 0))
+            .moveTo(0, W_all + W_NUT / 2)
+            .circle(R_LOCK_BODY + TOL_TIGHT_FIT)
+            .extrude(-H_NUT_BOT, combine='cut')
+            .faces('+Y')
+            .faces('>>Y[2]')
+            .workplane(origin=(0, 0, 0))
+            .moveTo(H_case_floor, W_all)
+            .lineTo(H_case_floor - H_exc_floor, W_all)
+            .lineTo(H_case_floor - H_exc_floor,
+                    W_all + H_exc_floor * math.tan(ANGLE_OVERHANG))
+            .close()
+            .extrude(-T_NUT, combine='cut')
+            )
+
+    case = (case
             # Fillet.
             .faces('<Z')
             .edges('not(<X)')
@@ -379,45 +419,114 @@ def make_digit_cover() -> cq.Workplane:
     return cover
 
 
+def make_bolt() -> cq.Workplane:
+    lock = (cq.Workplane()
+            # Make head.
+            .circle(R_LOCK_HEAD)
+            .extrude(H_LOCK_HEAD)
+            # Make slot.
+            .moveTo(0, 0)
+            .rect(T_LOCK_SLOT, W_LOCK_SLOT)
+            .extrude(H_LOCK_SLOT, combine='cut')
+            # Make slot overhang friendly.
+            .faces('+Y')
+            .workplane()
+            .moveTo(0, H_LOCK_SLOT)
+            .lineTo(T_LOCK_SLOT / 2, H_LOCK_SLOT)
+            .lineTo(T_LOCK_SLOT / 2,
+                    H_LOCK_SLOT - (T_LOCK_SLOT / 2) * math.tan(ANGLE_OVERHANG))
+            .close()
+            .moveTo(0, H_LOCK_SLOT)
+            .lineTo(-T_LOCK_SLOT / 2, H_LOCK_SLOT)
+            .lineTo(-T_LOCK_SLOT / 2,
+                    H_LOCK_SLOT - (T_LOCK_SLOT / 2) * math.tan(ANGLE_OVERHANG))
+            .close()
+            .extrude(W_LOCK_SLOT)
+            # Make body.
+            .faces('>Z')
+            .workplane(origin=(0, 0, 0))
+            .circle(R_LOCK_BODY)
+            .extrude(H_LOCK_BODY)
+            )
+
+    X_lock_body = R_LOCK_BODY * math.cos(ANGLE_LOCK_BOLT / 2)
+    Y_lock_body = R_LOCK_BODY * math.sin(ANGLE_LOCK_BOLT / 2)
+    X_lock_bolt, Y_lock_bolt = _compute_closest_point_on_circle(
+        X_lock_body, Y_lock_body, R_LOCK_BOLT, 0)
+    R_overhang = R_LOCK_BODY + 0.1  # Arbitrary overhang radius for loft.
+    H_overhang = (R_LOCK_BOLT - R_overhang) * math.tan(ANGLE_OVERHANG)
+    X_lock_overhang, Y_lock_overhang = _compute_closest_point_on_circle(
+        X_lock_body, Y_lock_body, R_overhang, 0)
+
+    bolt = (cq.Workplane()
+            .workplane(offset=H_LOCK_HEAD + H_LOCK_BODY)
+            .moveTo(X_lock_body, Y_lock_body)
+            .radiusArc((X_lock_body, -Y_lock_body), R_LOCK_BODY)
+            .lineTo(X_lock_bolt, -Y_lock_bolt)
+            .radiusArc((X_lock_bolt, Y_lock_bolt), -R_LOCK_BOLT)
+            .close()
+            .extrude(-(H_LOCK_BOLT - H_overhang))
+            .faces('<Z')
+            .wires()
+            .toPending()
+            .workplane(offset=H_overhang)
+            .moveTo(X_lock_body, Y_lock_body)
+            .radiusArc((X_lock_body, -Y_lock_body), R_LOCK_BODY)
+            .lineTo(X_lock_overhang, -Y_lock_bolt)
+            .radiusArc((X_lock_overhang, Y_lock_bolt), -R_overhang)
+            .close()
+            .loft()
+            )
+
+    lock = (lock
+            .union(bolt)
+            .union(bolt.rotate((0, 0, 0), (0, 0, 1), 180))
+            )
+    return lock
+
+
 if __name__ == '__cq_main__':
     import os
     from cadquery import exporters
     from scorecounter.parameters import DIR_EXPORT
 
-    wheel_bump = _make_wheel_bump()
+    # wheel_bump = _make_wheel_bump()
 
-    spring = (make_spring()
-              .translate((0, 0, TOL_MOVING + (W_DIGIT_WHEEL_BUMP - W_SPRING) / 2))
-              )
-    exporters.export(spring, os.path.join(DIR_EXPORT, 'spring.stl'))
+    # spring = (make_spring()
+    #           .translate((0, 0, TOL_MOVING + (W_DIGIT_WHEEL_BUMP - W_SPRING) / 2))
+    #           )
+    # exporters.export(spring, os.path.join(DIR_EXPORT, 'spring.stl'))
 
     case_bump = (make_case_bump_side()
                  .translate((0, 0, -T_CASE_CORE_WALL))
                  )
     exporters.export(case_bump, os.path.join(DIR_EXPORT, 'case_bump.stl'))
 
-    case_opposite = (make_case_opposite()
-                     # .translate((0, 0, -T_CASE_CORE_WALL))
-                     .translate((0, 0,
-                                 -(W_CASE_INNER
-                                   - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
-                                   + T_CASE_CORE_WALL)))
-                     .rotate((0, 0, 0), (1, 0, 0), 180)
-                     .translate((0, 0,
-                                 W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
-                                )
-                     )
-    exporters.export(case_opposite,
-                     os.path.join(DIR_EXPORT, 'case_opposite.stl'))
+    # case_opposite = (make_case_opposite()
+    #                  # .translate((0, 0, -T_CASE_CORE_WALL))
+    #                  .translate((0, 0,
+    #                              -(W_CASE_INNER
+    #                                - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+    #                                + T_CASE_CORE_WALL)))
+    #                  .rotate((0, 0, 0), (1, 0, 0), 180)
+    #                  .translate((0, 0,
+    #                              W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+    #                             )
+    #                  )
+    # exporters.export(case_opposite,
+    #                  os.path.join(DIR_EXPORT, 'case_opposite.stl'))
 
-    digit_cover = (make_digit_cover()
-                   .translate((0, 0,
-                               -(W_CASE_INNER
-                                 - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
-                                 + T_CASE_CORE_WALL)))
-                   .rotate((0, 0, 0), (1, 0, 0), 180)
-                   .translate((0, 0,
-                               W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING))
-                   )
-    exporters.export(digit_cover,
-                     os.path.join(DIR_EXPORT, 'digit_cover.stl'))
+    # digit_cover = (make_digit_cover()
+    #                .translate((0, 0,
+    #                            -(W_CASE_INNER
+    #                              - (W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING)
+    #                              + T_CASE_CORE_WALL)))
+    #                .rotate((0, 0, 0), (1, 0, 0), 180)
+    #                .translate((0, 0,
+    #                            W_DIGIT_WHEEL_BUMP + 2 * TOL_MOVING))
+    #                )
+    # exporters.export(digit_cover,
+    #                  os.path.join(DIR_EXPORT, 'digit_cover.stl'))
+
+    # bolt = make_bolt()
+    # exporters.export(bolt, os.path.join(DIR_EXPORT, 'bolt.stl'))

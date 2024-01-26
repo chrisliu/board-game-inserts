@@ -59,6 +59,14 @@ T_SPRING_SLOT = 1.75  # Depth of spring slot.
 # Case.
 W_CASE_INTERFACE = 2  # Thickness of walls joining the case.
 T_CASE_CORE_WALL = 1.2  # Wall supporting the core.
+R_LOCK_HEAD = 15 / 2  # Lock bolt head radius.
+R_LOCK_BODY = 10 / 2  # Lock bolt body radius.
+T_LOCK_SLOT = 1.8  # Lock slot thickness.
+# Minimum overlap between cases between lock begins.
+T_CASE_LOCK_WALL_MIN = 1.2
+T_LOCK_BOLT = 2  # Thickness of lock bolt.
+H_LOCK_BOLT = 1.5  # Height of lock bolt.
+ANGLE_LOCK_BOLT = math.radians(30)  # Angle of lock bolt.
 
 # Cover.
 T_COVER_WALL = 1
@@ -194,6 +202,18 @@ T_CASE_DIGIT_WALL = T_CASE / 2 - R_CASE_CORE_DIGIT
 T_CASE_FLOOR = H_CASE_HALF - abs(X_SPRING_OUTER)
 
 T_CASE_INTERFACE_MALE = T_WALL_MIN
+
+H_LOCK_HEAD = T_CASE_FLOOR - TOL_TIGHT_FIT - T_CASE_INTERFACE_MALE
+H_LOCK_BODY = (H_CASE_HALF - R_DIGIT_WHEEL_OUTER - TOL_MOVING) - H_LOCK_HEAD
+H_NUT_TOP = min(H_LOCK_BOLT + T_WALL_MIN,
+                (H_LOCK_BODY - TOL_TIGHT_FIT) / 2)
+H_NUT_BOT = (H_LOCK_BODY - TOL_TIGHT_FIT) - H_NUT_TOP
+W_NUT = 2 * (R_LOCK_BODY + TOL_TIGHT_FIT + T_CASE_LOCK_WALL_MIN)
+T_NUT = 2 * (R_LOCK_BODY + TOL_TIGHT_FIT + T_CASE_LOCK_WALL_MIN)
+H_LOCK_SLOT = H_LOCK_HEAD - T_WALL_MIN
+W_LOCK_SLOT = 2 * math.sqrt((R_LOCK_HEAD - 2 * T_WALL_MIN) ** 2
+                            - (T_LOCK_SLOT / 2) ** 2)
+R_LOCK_BOLT = R_LOCK_BODY + T_LOCK_BOLT
 
 # Overlap between cover and case.
 H_COVER_INTERFACE = 2 * T_WALL_MIN + 2 * TOL_TIGHT_FIT
